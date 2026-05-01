@@ -1,7 +1,125 @@
+<<<<<<< HEAD
 import { Analytics } from "@vercel/analytics/react";
+=======
+
+>>>>>>> 8ea08bd (upgrade detection engine v7)
 import { useEffect, useMemo, useState } from "react";
 
-const BIAS_MODELS = [
+/*
+  NudgeLens v7
+  Local behavioural decision reflection tool.
+  No backend. No API. No external UI library.
+
+  v7 calibration notes:
+  - Stronger extreme-risk floor: irreversible life/career/financial decisions cannot be scored as zero.
+  - Better handling of "without planning / without telling anyone / all savings" cases.
+  - Protective reasoning can lower pressure, but it cannot fully cancel extreme-risk signals.
+
+  Key upgrades:
+  - Recognises extreme life-risk decisions, not just buying/investing bias.
+  - Supports English and Chinese inputs.
+  - Uses weighted patterns + protective reasoning signals.
+  - Main screen gives a clear recommendation.
+  - Detailed analysis is folded below.
+*/
+
+const MODELS = [
+  {
+    id: "extreme_risk",
+    name: "Extreme Decision Risk",
+    label: "large irreversible action without planning",
+    weight: 1.8,
+    patterns: [
+      ["sold everything", 8],
+      ["sold all my belongings", 9],
+      ["sold all my possessions", 9],
+      ["quit my job", 8],
+      ["resigned from my job", 8],
+      ["left my job", 7],
+      ["without another job", 8],
+      ["without a backup plan", 9],
+      ["without planning", 8],
+      ["without a plan", 8],
+      ["without any plan", 8],
+      ["no plan", 8],
+      ["without savings", 8],
+      ["no savings", 8],
+      ["without knowing the language", 7],
+      ["without telling my family", 7],
+      ["without telling anyone", 7],
+      ["moved to another country", 8],
+      ["move to another country", 8],
+      ["all my money", 8],
+      ["all my savings", 9],
+      ["spent all my savings", 9],
+      ["invested everything", 9],
+      ["trusted a stranger", 8],
+      ["ignored all warnings", 8],
+      ["refused to listen", 7],
+      ["huge decision within minutes", 8],
+      ["just to prove a point", 7],
+      ["没有计划", 8],
+      ["没有后路", 9],
+      ["辞职", 7],
+      ["卖掉所有", 9],
+      ["全部积蓄", 9],
+      ["所有存款", 9],
+      ["没有告诉任何人", 7],
+      ["搬去另一个国家", 8],
+      ["没有存款", 8],
+      ["没有语言", 7],
+      ["没有准备", 8],
+      ["相信陌生人", 8]
+    ],
+    interpretation:
+      "The decision appears large, hard to reverse, and weakly planned. This is a high-risk structure even if the motivation feels strong.",
+    nudge:
+      "Pause immediately. Define the worst-case outcome, create a backup plan, and consult at least one independent person before acting.",
+    question:
+      "What irreversible harm could happen if this decision goes wrong?"
+  },
+  {
+    id: "evidence_neglect",
+    name: "Evidence Neglect",
+    label: "intuition overriding evidence",
+    weight: 1.45,
+    patterns: [
+      ["trust my intuition", 6],
+      ["trust intuition", 6],
+      ["trust my gut", 6],
+      ["gut feeling", 5],
+      ["trust my judgment", 5],
+      ["trust my experience", 5],
+      ["more than the data", 7],
+      ["ignore the data", 7],
+      ["data does not matter", 7],
+      ["without checking", 6],
+      ["without evidence", 6],
+      ["without strong evidence", 7],
+      ["without deep analysis", 6],
+      ["haven't checked", 5],
+      ["haven't compared", 5],
+      ["haven't calculated", 5],
+      ["data is incomplete", 6],
+      ["numbers are uncertain", 6],
+      ["feels right", 5],
+      ["spreadsheet", 3],
+      ["凭感觉", 6],
+      ["相信直觉", 6],
+      ["直觉", 5],
+      ["不看数据", 7],
+      ["数据不重要", 7],
+      ["没检查", 5],
+      ["没计算", 5],
+      ["没对比", 5]
+    ],
+    interpretation:
+      "The decision may rely on intuition or emotion while discounting available evidence.",
+    nudge:
+      "Write down three measurable facts that support this decision before acting.",
+    question:
+      "What specific evidence supports this choice?"
+  },
   {
     id: "extreme_risk",
     name: "Extreme Decision Risk",
@@ -29,143 +147,334 @@ const BIAS_MODELS = [
   {
     id: "loss_aversion",
     name: "Loss Aversion",
-    label: "Regret / fear of missing out",
-    weight: 1.35,
-    signals: [
-      "regret", "miss", "miss out", "fear", "limited", "last chance",
-      "后悔", "错过", "害怕", "怕", "限时", "最后机会", "没了"
+    label: "regret or fear of missing out",
+    weight: 1.3,
+    patterns: [
+      ["regret forever", 7],
+      ["regret", 4],
+      ["miss out", 6],
+      ["fomo", 7],
+      ["last chance", 6],
+      ["left behind", 6],
+      ["opportunity disappears", 6],
+      ["before it is gone", 6],
+      ["recover previous losses", 7],
+      ["too good to miss", 6],
+      ["后悔", 4],
+      ["错过", 4],
+      ["怕错过", 6],
+      ["最后机会", 6],
+      ["机会没了", 6],
+      ["回本", 7]
     ],
     interpretation:
       "The decision may be driven by regret avoidance rather than objective value.",
     nudge:
-      "Delay the decision for 24 hours. If it still makes sense tomorrow, it is less likely to be driven by fear of missing out.",
+      "Delay the decision for 24 hours and reassess after the emotional pressure drops.",
     question:
-      "Am I choosing this because it creates value, or because I want to avoid regret?"
+      "Am I choosing value, or escaping the pain of missing out?"
   },
   {
     id: "anchoring",
     name: "Anchoring Bias",
-    label: "Reference price / discount framing",
-    weight: 1.25,
-    signals: [
-      "discount", "sale", "original", "original price", "price", "cheap",
-      "折扣", "打折", "原价", "价格", "便宜", "优惠", "划算"
+    label: "discount or reference-price framing",
+    weight: 1.15,
+    patterns: [
+      ["discount", 4],
+      ["sale", 4],
+      ["original price", 6],
+      ["original", 3],
+      ["price", 2],
+      ["cheap", 3],
+      ["deal", 4],
+      ["bargain", 4],
+      ["50%", 6],
+      ["40%", 6],
+      ["30%", 6],
+      ["marked down", 6],
+      ["lower than usual", 6],
+      ["stupid not to buy", 7],
+      ["折扣", 4],
+      ["打折", 4],
+      ["原价", 6],
+      ["价格", 2],
+      ["便宜", 3],
+      ["优惠", 4],
+      ["划算", 4],
+      ["降价", 4]
     ],
     interpretation:
-      "The decision may be overly influenced by a reference price, discount, or first impression.",
+      "The decision may be overly influenced by a discount or reference price.",
     nudge:
-      "Hide the original price and judge only the final price, usefulness, budget impact, and opportunity cost.",
+      "Ignore the original price and judge only the final price, usefulness, and opportunity cost.",
     question:
-      "Would I still want this if the discount label and original price were removed?"
+      "Would I still want this if the discount label disappeared?"
   },
   {
     id: "social_proof",
     name: "Social Proof",
-    label: "Social validation / popularity pressure",
-    weight: 1.12,
-    signals: [
-      "everyone", "friends", "popular", "reviews", "review", "trend",
-      "别人", "大家", "朋友", "流行", "评价", "都说", "很多人", "推荐"
+    label: "social validation pressure",
+    weight: 1.1,
+    patterns: [
+      ["everyone else", 6],
+      ["everyone", 4],
+      ["friends", 4],
+      ["popular", 4],
+      ["reviews", 3],
+      ["people are talking", 6],
+      ["many people", 4],
+      ["recommended", 4],
+      ["successful people", 6],
+      ["only one without it", 7],
+      ["别人", 4],
+      ["大家", 4],
+      ["朋友", 4],
+      ["流行", 4],
+      ["评价", 3],
+      ["都说", 4],
+      ["很多人", 4],
+      ["推荐", 4],
+      ["热门", 4],
+      ["网红", 6]
     ],
     interpretation:
-      "The decision may be using popularity or social approval as a substitute for personal fit.",
+      "The decision may be using popularity as a substitute for personal fit.",
     nudge:
-      "Remove the audience. Ask whether you would still choose it if nobody else could see or judge it.",
+      "Remove the audience and ask whether you would still choose it privately.",
     question:
-      "Is this my own preference, or am I borrowing other people's preferences?"
+      "Is this my own preference, or borrowed preference?"
   },
   {
     id: "present_bias",
     name: "Present Bias",
-    label: "Immediate reward / short-term satisfaction",
-    weight: 1.2,
-    signals: [
-      "now", "today", "immediately", "reward", "feel good", "want it",
-      "现在", "马上", "今天", "立刻", "奖励自己", "爽", "开心", "想要"
+    label: "immediate reward over future cost",
+    weight: 1.12,
+    patterns: [
+      ["right now", 6],
+      ["now", 3],
+      ["today", 3],
+      ["immediately", 6],
+      ["act quickly", 6],
+      ["reward myself", 6],
+      ["feel better", 5],
+      ["feel good", 5],
+      ["want it now", 6],
+      ["buy it now", 6],
+      ["rare opportunity", 5],
+      ["现在", 3],
+      ["马上", 5],
+      ["今天", 3],
+      ["立刻", 6],
+      ["奖励自己", 6],
+      ["爽", 5],
+      ["开心", 3],
+      ["想要", 3]
     ],
     interpretation:
       "Immediate satisfaction may be more visible than future cost.",
     nudge:
-      "Translate the choice into a future cost: what will this reduce your ability to do next week or next month?",
+      "Translate this choice into future cost: what will it reduce next month?",
     question:
       "Will this still feel like a good decision one month from now?"
   },
   {
     id: "sunk_cost",
     name: "Sunk Cost Fallacy",
-    label: "Past investment pressure",
-    weight: 1.28,
-    signals: [
-      "already", "spent", "wasted", "continue", "research",
-      "已经", "花了", "浪费", "继续", "研究了", "白费", "投入"
+    label: "past investment pressure",
+    weight: 1.2,
+    patterns: [
+      ["already spent", 7],
+      ["already invested", 7],
+      ["spent so much", 7],
+      ["spent hours", 6],
+      ["would waste", 6],
+      ["wasted", 4],
+      ["continue", 3],
+      ["committed", 5],
+      ["stopping now", 6],
+      ["researching this", 5],
+      ["so much time", 6],
+      ["already told people", 6],
+      ["已经", 3],
+      ["花了", 4],
+      ["浪费", 4],
+      ["继续", 3],
+      ["研究了", 4],
+      ["白费", 6],
+      ["投入", 4],
+      ["舍不得", 6]
     ],
     interpretation:
-      "Past effort may be pulling the user into a future decision that no longer makes sense.",
+      "Past effort may be pulling the user into a decision that no longer makes sense.",
     nudge:
-      "Ignore past cost. Ask: starting today, is this still the best option?",
+      "Ignore past cost. Ask whether this is still the best option from today onward.",
     question:
       "If I had not invested anything yet, would I still choose this?"
   },
   {
     id: "overconfidence",
     name: "Overconfidence",
-    label: "Underestimating uncertainty",
-    weight: 1.38,
-    signals: [
-      "sure", "certain", "definitely", "guaranteed", "easy", "no risk",
-      "稳赚", "肯定", "一定", "不会错", "很简单", "确定", "没风险"
+    label: "underestimating uncertainty",
+    weight: 1.28,
+    patterns: [
+      ["absolutely sure", 7],
+      ["sure", 3],
+      ["certain", 4],
+      ["definitely", 6],
+      ["guaranteed", 7],
+      ["cannot fail", 7],
+      ["no risk", 7],
+      ["will definitely", 7],
+      ["easy money", 7],
+      ["predict the market", 7],
+      ["better than most", 7],
+      ["make me rich quickly", 7],
+      ["will earn money quickly", 7],
+      ["稳赚", 7],
+      ["肯定", 4],
+      ["一定", 4],
+      ["不会错", 6],
+      ["很简单", 4],
+      ["确定", 4],
+      ["没风险", 7],
+      ["稳赢", 7],
+      ["绝对", 6]
     ],
     interpretation:
       "The decision may underestimate uncertainty, downside risk, or the chance of being wrong.",
     nudge:
-      "Run a pre-mortem: imagine the decision failed badly. What are the three most likely reasons?",
+      "Run a pre-mortem: imagine this failed badly. What are the three most likely reasons?",
     question:
       "What evidence would prove my current belief wrong?"
   },
   {
     id: "planning_fallacy",
     name: "Planning Fallacy",
-    label: "Underestimating time and execution difficulty",
-    weight: 1.22,
-    signals: [
-      "later", "tomorrow", "quick", "enough time", "simple",
-      "明天", "以后", "来得及", "很快", "不难", "时间够", "简单"
+    label: "underestimating time or difficulty",
+    weight: 1.12,
+    patterns: [
+      ["start studying tomorrow", 7],
+      ["finish everything quickly", 7],
+      ["not take long", 6],
+      ["easy to finish", 6],
+      ["enough time", 6],
+      ["last minute", 7],
+      ["later", 3],
+      ["tomorrow", 3],
+      ["quickly", 3],
+      ["quick", 3],
+      ["simple", 3],
+      ["not hard", 4],
+      ["明天", 3],
+      ["以后", 3],
+      ["来得及", 6],
+      ["很快", 4],
+      ["不难", 4],
+      ["时间够", 6],
+      ["简单", 3],
+      ["晚点", 3]
     ],
     interpretation:
       "The plan may look easier in imagination than it will feel in execution.",
     nudge:
-      "Break the plan into the smallest next physical action, then multiply the estimated time by 1.5.",
+      "Break the plan into the smallest next action and multiply estimated time by 1.5.",
     question:
-      "In similar past tasks, did I usually finish faster or slower than expected?"
-  },
-  {
-    id: "mental_accounting",
-    name: "Mental Accounting",
-    label: "Money framing / budget labels",
-    weight: 1.14,
-    signals: [
-      "budget", "bonus", "cashback", "points", "extra money", "free",
-      "预算", "奖金", "返现", "积分", "这笔钱", "额外的钱", "免费"
-    ],
-    interpretation:
-      "Money may be treated differently because of its label, source, or mental category.",
-    nudge:
-      "Put the money back into your total budget and compare it with your highest-priority goal.",
-    question:
-      "Would I make the same decision if this money came from normal income?"
+      "Did similar past tasks finish faster or slower than expected?"
   }
 ];
 
-function normalizeText(text) {
-  return text.toLowerCase();
+const PROTECTIVE_PATTERNS = [
+  ["compared alternatives", 7],
+  ["compared", 4],
+  ["compare", 4],
+  ["alternatives", 4],
+  ["checked", 4],
+  ["reviewed the data", 7],
+  ["reviewed", 4],
+  ["budget", 4],
+  ["fits my budget", 7],
+  ["financial goals", 7],
+  ["savings goal", 7],
+  ["long-term", 6],
+  ["long term", 6],
+  ["waited", 6],
+  ["delayed", 6],
+  ["confirmed", 4],
+  ["actual needs", 6],
+  ["real problem", 6],
+  ["more information", 4],
+  ["maintenance costs", 6],
+  ["backup plan", 8],
+  ["another job lined up", 8],
+  ["emergency fund", 8],
+  ["discussed with family", 6],
+  ["asked for advice", 6],
+  ["decided not to buy", 7],
+  ["evidence", 4],
+  ["calculated", 6],
+  ["比较", 4],
+  ["替代", 4],
+  ["检查", 4],
+  ["预算", 4],
+  ["长期", 6],
+  ["等待", 6],
+  ["延迟", 6],
+  ["确认", 4],
+  ["真实需要", 6],
+  ["数据", 4],
+  ["证据", 4],
+  ["计算", 6],
+  ["备用计划", 8],
+  ["后备计划", 8]
+];
+
+const NEGATION_PATTERNS = [
+  "not sure",
+  "not certain",
+  "not guaranteed",
+  "not confident",
+  "cannot be sure",
+  "uncertain",
+  "不确定",
+  "不一定",
+  "没有把握"
+];
+
+function normalise(text) {
+  return text
+    .toLowerCase()
+    .replaceAll(",", " ")
+    .replaceAll(".", " ")
+    .replaceAll("?", " ")
+    .replaceAll("!", " ")
+    .replaceAll(";", " ")
+    .replaceAll(":", " ")
+    .replaceAll("，", " ")
+    .replaceAll("。", " ")
+    .replaceAll("？", " ")
+    .replaceAll("！", " ");
 }
 
-function findMatches(text, signals) {
-  const lower = normalizeText(text);
-  return signals.filter((signal) => lower.includes(signal.toLowerCase()));
+function findWeightedHits(text, patterns) {
+  const lower = normalise(text);
+  return patterns
+    .filter(([pattern]) => lower.includes(pattern.toLowerCase()))
+    .map(([text, weight]) => ({ text, weight }));
+}
+
+function wordCount(text) {
+  const words = normalise(text).split(" ").filter(Boolean).length;
+  const chineseChars = [...text].filter((char) => char >= "一" && char <= "龥").length;
+  return Math.max(1, words + Math.ceil(chineseChars / 2));
+}
+
+function hasNegation(text) {
+  const lower = normalise(text);
+  return NEGATION_PATTERNS.some((pattern) => lower.includes(pattern));
 }
 
 function detectDecisionType(text) {
+<<<<<<< HEAD
   const lower = normalizeText(text);
 
   if (["invest", "stock", "crypto", "fund", "股票", "投资", "基金", "市场"].some((x) => lower.includes(x))) {
@@ -184,35 +493,61 @@ function detectDecisionType(text) {
     return "Life / career decision";
   }
 
+=======
+  const lower = normalise(text);
+  if (["intuition", "gut feeling", "instinct", "data", "evidence", "spreadsheet", "numbers", "judgment", "直觉", "凭感觉", "数据", "证据"].some((x) => lower.includes(x))) return "Judgement / evidence-based decision";
+  if (["job", "career", "quit", "resign", "internship", "major", "application", "工作", "职业", "实习", "专业", "申请", "辞职"].some((x) => lower.includes(x))) return "Career / education decision";
+  if (["invest", "stock", "crypto", "fund", "market", "portfolio", "return", "losses", "股票", "投资", "基金", "市场", "组合"].some((x) => lower.includes(x))) return "Investment / financial decision";
+  if (["move", "country", "belongings", "savings", "family", "relationship", "搬", "国家", "存款", "家人"].some((x) => lower.includes(x))) return "Life decision";
+  if (["buy", "purchase", "product", "watch", "phone", "car", "laptop", "item", "deal", "买", "购买", "产品", "手表", "手机", "车"].some((x) => lower.includes(x))) return "Consumer decision";
+  if (["study", "assignment", "exam", "course", "homework", "task", "studying", "复习", "作业", "考试", "学习", "任务"].some((x) => lower.includes(x))) return "Study / productivity decision";
+>>>>>>> 8ea08bd (upgrade detection engine v7)
   return "General decision";
 }
 
+function scoreModel(model, text, words) {
+  const hits = findWeightedHits(text, model.patterns);
+  const weightedSignal = hits.reduce((sum, hit) => sum + hit.weight, 0);
+  const diversityBonus = hits.length >= 2 ? 12 : 0;
+  const longPhraseBonus = hits.some((hit) => hit.text.includes(" ") || hit.text.length >= 6) ? 10 : 0;
+  let raw = weightedSignal * 10 + diversityBonus + longPhraseBonus;
+
+  if (model.id === "overconfidence" && hasNegation(text)) raw *= 0.45;
+
+  const score = Math.min(98, Math.round((raw * model.weight) / Math.max(1, words / 75)));
+  const level = score >= 72 ? "High" : score >= 38 ? "Medium" : "Low";
+
+  return { ...model, evidence: hits.map((hit) => hit.text), score, level };
+}
+
 function analyseDecision(text) {
-  const results = BIAS_MODELS.map((model) => {
-    const evidence = findMatches(text, model.signals);
-    const score = Math.min(98, Math.round(evidence.length * 26 * model.weight));
+  const words = wordCount(text);
+  const protectiveHits = findWeightedHits(text, PROTECTIVE_PATTERNS);
+  const protectiveScore = protectiveHits.reduce((sum, hit) => sum + hit.weight, 0);
 
-    let level = "Low";
-    if (score >= 72) level = "High";
-    else if (score >= 38) level = "Medium";
-
-    return {
-      ...model,
-      evidence,
-      score,
-      level
-    };
-  })
-    .filter((item) => item.score > 0)
+  const biasResults = MODELS
+    .map((model) => scoreModel(model, text, words))
+    .filter((item) => item.score >= 14 || item.evidence.length > 0)
     .sort((a, b) => b.score - a.score);
 
-  const pressure = Math.min(
-    100,
-    results.reduce((sum, item) => sum + item.score, 0)
-  );
+  let pressure = biasResults.reduce((sum, item) => sum + item.score, 0) - protectiveScore * 7;
 
-  const reflectiveIndex = Math.max(10, 100 - pressure);
+  const extremeRisk = biasResults.find((item) => item.id === "extreme_risk");
+  const hasExtremeRisk = extremeRisk && extremeRisk.score >= 38;
 
+  if (protectiveHits.length >= 2 && pressure < 65 && !hasExtremeRisk) pressure -= 10;
+
+  // Calibration floor: high-impact, low-planning decisions should never appear as "pressure 0".
+  if (hasExtremeRisk) {
+    pressure = Math.max(pressure, extremeRisk.score >= 72 ? 86 : 64);
+  }
+
+  if (!text.trim()) pressure = 0;
+  pressure = Math.max(0, Math.min(100, Math.round(pressure)));
+
+  const reflectiveIndex = Math.max(10, Math.min(100, 100 - pressure + protectiveScore));
+
+<<<<<<< HEAD
   const topBias = results[0];
   const extremeRisk = results.find((item) => item.id === "extreme_risk");
   const highRiskBiasIds = ["extreme_risk", "overconfidence", "loss_aversion", "sunk_cost", "present_bias"];
@@ -352,10 +687,35 @@ function analyseDecision(text) {
   const gptStyleOutput = isEmptyInput
     ? "Provide more context so the decision can be evaluated meaningfully."
     : `${pick(synthesisVariants)} ${mainReason} ${secondaryReason} ${pick(actionVariants)}`;
+=======
+  let recommendation = "Reasonable to proceed";
+  let tone = "positive";
+  if (pressure >= 72) {
+    recommendation = "Do not decide yet";
+    tone = "caution";
+  } else if (pressure >= 38) {
+    recommendation = "Delay and compare alternatives";
+    tone = "moderate";
+  }
+
+  const topBias = biasResults[0];
+  const mainReason = topBias
+    ? `The strongest signal is ${topBias.name}. This suggests the decision may be influenced by ${topBias.label} rather than only objective value.`
+    : "No dominant behavioural bias was detected. The decision language appears relatively balanced.";
+
+  const secondaryReason = pressure >= 72
+    ? "Decision pressure is high. Acting immediately may increase regret risk."
+    : pressure >= 38
+    ? "Some pressure signals are present. A short delay and comparison with alternatives may improve clarity."
+    : protectiveHits.length > 0
+    ? "Protective reasoning signals were detected, such as comparison, delay, budgeting, or evidence checking."
+    : "Decision pressure is low. The current framing does not show strong urgency, fear, or social-pressure signals.";
+>>>>>>> 8ea08bd (upgrade detection engine v7)
 
   return {
     decisionType: detectDecisionType(text),
-    results,
+    biasResults,
+    protectiveHits: protectiveHits.map((hit) => hit.text),
     pressure,
     reflectiveIndex,
     recommendation,
@@ -376,12 +736,13 @@ export default function App() {
   const [animatedTopSignal, setAnimatedTopSignal] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("nudgelens-history");
+    const saved = localStorage.getItem("nudgelens-history-v7");
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
   const liveAnalysis = useMemo(() => analyseDecision(input), [input]);
   const current = savedAnalysis || liveAnalysis;
+<<<<<<< HEAD
 
   useEffect(() => {
     if (!input) {
@@ -432,6 +793,9 @@ export default function App() {
       : current.tone === "moderate"
       ? "rgba(242,153,0,.24)"
       : "rgba(24,128,56,.22)";
+=======
+  const topBias = current.biasResults[0];
+>>>>>>> 8ea08bd (upgrade detection engine v7)
 
   function runAnalysis() {
     const next = analyseDecision(input);
@@ -446,38 +810,26 @@ export default function App() {
         pressure: next.pressure,
         reflectiveIndex: next.reflectiveIndex,
         decisionType: next.decisionType,
-        topBias: next.results[0]?.name || "No strong bias"
+        topBias: next.biasResults[0]?.name || "No strong bias"
       };
-
-      const updated = [record, ...history].slice(0, 30);
+      const updated = [record, ...history].slice(0, 40);
       setHistory(updated);
-      localStorage.setItem("nudgelens-history", JSON.stringify(updated));
+      localStorage.setItem("nudgelens-history-v6", JSON.stringify(updated));
     }
   }
 
-  function exportCSV() {
-    const rows = [
-      ["date", "decision_type", "recommendation", "pressure", "reflective_index", "top_bias", "text"],
-      ...history.map((item) => [
-        item.date,
-        item.decisionType,
-        item.recommendation,
-        item.pressure,
-        item.reflectiveIndex,
-        item.topBias,
-        item.text.replaceAll("\n", " ")
-      ])
-    ];
+  function clearAll() {
+    setInput("");
+    setSavedAnalysis(null);
+  }
 
-    const csv = rows
-      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  function exportData() {
+    const data = JSON.stringify(history, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "nudgelens-research-data.csv";
+    a.download = "nudgelens-research-data.json";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -656,11 +1008,16 @@ export default function App() {
             <span style={styles.logoDot}></span>
             <span style={styles.productName}>NudgeLens</span>
           </div>
+<<<<<<< HEAD
 
           <h1 className="nl-title" style={styles.title}>Decision Reflection Assistant</h1>
           <p className="nl-description" style={styles.description}>
             Describe a decision in English or Chinese, and NudgeLens will identify possible behavioural pressure before you act.
           </p>
+=======
+          <h1 style={styles.title}>Decision Reflection Assistant</h1>
+          <p style={styles.description}>Describe a decision in English or Chinese. NudgeLens identifies behavioural pressure before you act.</p>
+>>>>>>> 8ea08bd (upgrade detection engine v7)
         </header>
 
         <main className="nl-search-area" style={styles.searchArea}>
@@ -674,21 +1031,9 @@ export default function App() {
             }}
             placeholder="Describe your decision here..."
           />
-
           <div style={styles.actions}>
-            <button style={styles.primaryButton} onClick={runAnalysis}>
-              Analyse decision
-            </button>
-
-            <button
-              style={styles.secondaryButton}
-              onClick={() => {
-                setInput("");
-                setSavedAnalysis(null);
-              }}
-            >
-              Clear
-            </button>
+            <button style={styles.primaryButton} onClick={runAnalysis}>Analyse decision</button>
+            <button style={styles.secondaryButton} onClick={clearAll}>Clear</button>
           </div>
         </main>
 
@@ -708,6 +1053,7 @@ export default function App() {
             <span className="nl-decision-type" style={styles.decisionType}>{current.decisionType}</span>
           </div>
 
+<<<<<<< HEAD
           <h2
             className="nl-recommendation-text"
             style={{
@@ -720,6 +1066,9 @@ export default function App() {
                   : "#188038"
             }}
           >
+=======
+          <h2 style={{ ...styles.recommendationText, color: current.tone === "caution" ? "#d93025" : current.tone === "moderate" ? "#f29900" : "#188038" }}>
+>>>>>>> 8ea08bd (upgrade detection engine v7)
             {current.recommendation}
           </h2>
 
@@ -727,6 +1076,7 @@ export default function App() {
             {current.gptStyleOutput}
           </p>
 
+<<<<<<< HEAD
           <div className="nl-index-row" style={styles.indexRow}>
             <div className="feedback-reveal delay-2 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Reflective index</span>
@@ -740,6 +1090,12 @@ export default function App() {
               <span>Top signal</span>
               <strong>{animatedTopSignal}</strong>
             </div>
+=======
+          <div style={styles.indexRow}>
+            <div style={styles.indexBox}><span>Reflective index</span><strong>{current.reflectiveIndex}</strong></div>
+            <div style={styles.indexBox}><span>Decision pressure</span><strong>{current.pressure}</strong></div>
+            <div style={styles.indexBox}><span>Top signal</span><strong>{topBias ? topBias.name : "None"}</strong></div>
+>>>>>>> 8ea08bd (upgrade detection engine v7)
           </div>
         </section>
 
@@ -756,29 +1112,21 @@ export default function App() {
               <p>{topBias.nudge}</p>
             </div>
           ) : (
-            <p style={styles.mutedText}>
-              No strong bias is visible yet. Add more context about price, urgency, social pressure, uncertainty, or alternatives for richer analysis.
-            </p>
+            <p style={styles.mutedText}>No strong bias is visible yet. Add more context about price, urgency, social pressure, uncertainty, evidence, or alternatives for richer analysis.</p>
           )}
 
           <details style={styles.detailsBox}>
             <summary style={styles.detailsSummary}>Show detailed reasoning</summary>
-
-            {current.results.length === 0 ? (
+            {current.biasResults.length === 0 ? (
               <p style={styles.mutedText}>No detailed bias signals detected.</p>
             ) : (
-              current.results.map((bias) => (
+              current.biasResults.map((bias) => (
                 <div key={bias.id} style={styles.biasBox}>
                   <div style={styles.biasHeader}>
-                    <div>
-                      <strong>{bias.name}</strong>
-                      <p>{bias.label}</p>
-                    </div>
-                    <span style={styles.biasScore}>
-                      {bias.level} · {bias.score}
-                    </span>
+                    <div><strong>{bias.name}</strong><p>{bias.label}</p></div>
+                    <span style={styles.biasScore}>{bias.level} · {bias.score}</span>
                   </div>
-                  <p><b>Evidence:</b> {bias.evidence.join(", ")}</p>
+                  <p><b>Evidence:</b> {bias.evidence.length ? bias.evidence.join(", ") : "implicit contextual signal"}</p>
                   <p><b>Interpretation:</b> {bias.interpretation}</p>
                   <p><b>Nudge:</b> {bias.nudge}</p>
                   <p><b>Reflection:</b> {bias.question}</p>
@@ -788,33 +1136,21 @@ export default function App() {
           </details>
 
           <details style={styles.detailsBox}>
+            <summary style={styles.detailsSummary}>Protective reasoning signals</summary>
+            {current.protectiveHits.length === 0 ? <p style={styles.mutedText}>No protective reasoning signals detected.</p> : <p style={styles.mutedText}>{current.protectiveHits.join(", ")}</p>}
+          </details>
+
+          <details style={styles.detailsBox}>
             <summary style={styles.detailsSummary}>Research history and export</summary>
-
-            <button style={styles.secondaryButton} onClick={exportCSV}>
-              Export CSV
-            </button>
-
-            <button
-              style={styles.secondaryButton}
-              onClick={() => {
-                setHistory([]);
-                localStorage.removeItem("nudgelens-history");
-              }}
-            >
-              Clear history
-            </button>
-
-            {history.length === 0 ? (
-              <p style={styles.mutedText}>No saved decisions yet.</p>
-            ) : (
-              history.map((item) => (
-                <div key={item.id} style={styles.historyItem}>
-                  <span>{item.date} · {item.decisionType}</span>
-                  <p>{item.text}</p>
-                  <strong>{item.recommendation} · {item.topBias}</strong>
-                </div>
-              ))
-            )}
+            <button style={styles.secondaryButton} onClick={exportData}>Export JSON</button>
+            <button style={styles.secondaryButton} onClick={() => { setHistory([]); localStorage.removeItem("nudgelens-history-v6"); }}>Clear history</button>
+            {history.length === 0 ? <p style={styles.mutedText}>No saved decisions yet.</p> : history.map((item) => (
+              <div key={item.id} style={styles.historyItem}>
+                <span>{item.date} · {item.decisionType}</span>
+                <p>{item.text}</p>
+                <strong>{item.recommendation} · {item.topBias}</strong>
+              </div>
+            ))}
           </details>
         </section>
           </>
@@ -826,6 +1162,7 @@ export default function App() {
 }
 
 const styles = {
+<<<<<<< HEAD
   page: {
     minHeight: "100vh",
     background: "radial-gradient(circle at top, #f8fbff 0%, #ffffff 44%)",
@@ -1042,3 +1379,37 @@ const styles = {
     color: "#3c4043"
   }
 };
+=======
+  page: { minHeight: "100vh", background: "#ffffff", color: "#202124", fontFamily: "Arial, sans-serif", padding: "28px" },
+  shell: { maxWidth: "980px", margin: "0 auto" },
+  header: { textAlign: "center", paddingTop: "20px", paddingBottom: "12px" },
+  logoRow: { display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginBottom: "16px" },
+  logoDot: { width: "14px", height: "14px", borderRadius: "999px", background: "linear-gradient(135deg,#4285f4,#34a853,#fbbc05,#ea4335)" },
+  productName: { color: "#5f6368", fontWeight: 600 },
+  title: { fontSize: "42px", lineHeight: 1.1, fontWeight: 600, letterSpacing: "-1.4px", margin: 0 },
+  description: { color: "#5f6368", fontSize: "16px", lineHeight: 1.6, marginTop: "12px" },
+  searchArea: { maxWidth: "860px", margin: "24px auto 22px", textAlign: "center" },
+  searchBox: { width: "100%", minHeight: "132px", border: "1px solid #dadce0", borderRadius: "34px", padding: "22px 28px", fontSize: "17px", lineHeight: 1.65, resize: "vertical", outline: "none", boxSizing: "border-box", boxShadow: "0 1px 6px rgba(32,33,36,.18)", color: "#202124", background: "#ffffff" },
+  actions: { display: "flex", justifyContent: "center", gap: "12px", marginTop: "18px" },
+  primaryButton: { background: "#1a73e8", color: "#ffffff", border: "none", borderRadius: "999px", padding: "12px 22px", cursor: "pointer", fontWeight: 600, fontSize: "14px" },
+  secondaryButton: { background: "#ffffff", color: "#1a73e8", border: "1px solid #dadce0", borderRadius: "999px", padding: "11px 18px", cursor: "pointer", fontWeight: 600, marginRight: "8px", marginTop: "8px" },
+  recommendationCard: { border: "1px solid #dadce0", borderRadius: "30px", padding: "26px", background: "#ffffff", boxShadow: "0 1px 2px rgba(60,64,67,.08), 0 2px 8px rgba(60,64,67,.08)", marginBottom: "20px" },
+  topRow: { display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" },
+  cardLabel: { color: "#5f6368", fontSize: "13px", fontWeight: 600 },
+  decisionType: { color: "#5f6368", background: "#f1f3f4", borderRadius: "999px", padding: "7px 12px", fontSize: "13px" },
+  recommendationText: { fontSize: "38px", lineHeight: 1.1, marginTop: "14px", marginBottom: "14px", letterSpacing: "-1px" },
+  reasonText: { color: "#3c4043", fontSize: "16px", lineHeight: 1.7, margin: "8px 0" },
+  indexRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginTop: "20px" },
+  indexBox: { background: "#f8fafd", border: "1px solid #e8eaed", borderRadius: "22px", padding: "16px" },
+  analysisCard: { border: "1px solid #dadce0", borderRadius: "30px", padding: "24px", background: "#ffffff", boxShadow: "0 1px 2px rgba(60,64,67,.08), 0 2px 8px rgba(60,64,67,.08)" },
+  sectionTitle: { marginTop: 0, fontSize: "22px" },
+  analysisSummary: { background: "#f8fafd", border: "1px solid #e8eaed", borderRadius: "24px", padding: "18px", lineHeight: 1.7, marginBottom: "14px" },
+  mutedText: { color: "#5f6368", lineHeight: 1.7 },
+  detailsBox: { borderTop: "1px solid #e8eaed", paddingTop: "14px", marginTop: "14px" },
+  detailsSummary: { cursor: "pointer", color: "#1a73e8", fontWeight: 600, marginBottom: "12px" },
+  biasBox: { border: "1px solid #e8eaed", borderRadius: "22px", padding: "16px", lineHeight: 1.65, marginTop: "12px" },
+  biasHeader: { display: "flex", justifyContent: "space-between", gap: "14px", alignItems: "flex-start" },
+  biasScore: { background: "#e8f0fe", color: "#1967d2", borderRadius: "999px", padding: "7px 11px", fontSize: "13px", fontWeight: 600, whiteSpace: "nowrap" },
+  historyItem: { borderTop: "1px solid #e8eaed", paddingTop: "12px", marginTop: "12px", lineHeight: 1.6, color: "#3c4043" }
+};
+>>>>>>> 8ea08bd (upgrade detection engine v7)
