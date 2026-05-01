@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/react";
 import { useEffect, useMemo, useState } from "react";
 
 const BIAS_MODELS = [
@@ -438,6 +439,7 @@ export default function App() {
           </details>
         </section>
       </div>
+      <Analytics />
     </div>
   );
 }
