@@ -3,6 +3,30 @@ import { useEffect, useMemo, useState } from "react";
 
 const BIAS_MODELS = [
   {
+    id: "extreme_risk",
+    name: "Extreme Decision Risk",
+    label: "large irreversible action without enough planning",
+    weight: 1.9,
+    signals: [
+      "sold everything", "sold all my belongings", "sold all my possessions",
+      "quit my job", "resigned from my job", "left my job",
+      "without another job", "without a backup plan", "without planning",
+      "without any plan", "without a plan", "no plan", "without telling anyone",
+      "moved to another country", "move to another country", "all my savings",
+      "all my money", "spent all my savings", "invested everything",
+      "trusted a stranger", "ignored all warnings", "refused to listen",
+      "huge decision within minutes", "just to prove a point",
+      "没有计划", "没有后路", "辞职", "卖掉所有", "全部积蓄",
+      "所有存款", "没有告诉任何人", "搬去另一个国家", "相信陌生人"
+    ],
+    interpretation:
+      "The decision appears large, hard to reverse, and weakly planned. This is a high-risk structure even if the motivation feels strong.",
+    nudge:
+      "Pause immediately. Define the worst-case outcome, create a backup plan, and consult at least one independent person before acting.",
+    question:
+      "What irreversible harm could happen if this decision goes wrong?"
+  },
+  {
     id: "loss_aversion",
     name: "Loss Aversion",
     label: "Regret / fear of missing out",
@@ -156,6 +180,10 @@ function detectDecisionType(text) {
     return "Study / productivity decision";
   }
 
+  if (["move", "country", "belongings", "savings", "family", "relationship", "quit", "job", "resign", "搬", "国家", "存款", "家人", "辞职"].some((x) => lower.includes(x))) {
+    return "Life / career decision";
+  }
+
   return "General decision";
 }
 
@@ -185,27 +213,37 @@ function analyseDecision(text) {
 
   const reflectiveIndex = Math.max(10, 100 - pressure);
 
+  const topBias = results[0];
+  const extremeRisk = results.find((item) => item.id === "extreme_risk");
+  const highRiskBiasIds = ["extreme_risk", "overconfidence", "loss_aversion", "sunk_cost"];
+  const hasHighRiskBias = results.some(
+    (item) => highRiskBiasIds.includes(item.id) && item.score >= 38
+  );
+
   let recommendation = "Reasonable to proceed";
   let tone = "positive";
 
-  if (pressure >= 72) {
+  if (extremeRisk && extremeRisk.score >= 38) {
     recommendation = "Do not decide yet";
     tone = "caution";
-  } else if (pressure >= 38) {
+  } else if (pressure >= 72 || (topBias && topBias.score >= 72)) {
+    recommendation = "Do not decide yet";
+    tone = "caution";
+  } else if (pressure >= 38 || hasHighRiskBias || results.length >= 2) {
     recommendation = "Delay and compare alternatives";
     tone = "moderate";
   }
-
-  const topBias = results[0];
 
   const mainReason = topBias
     ? `The strongest signal is ${topBias.name}. This suggests the decision may be influenced by ${topBias.label.toLowerCase()} rather than only objective value.`
     : "No dominant behavioural bias was detected. The decision language appears relatively balanced.";
 
   const secondaryReason =
-    pressure >= 72
+    extremeRisk && extremeRisk.score >= 38
+      ? "This is a large or hard-to-reverse decision with weak planning signals. It should not be treated as a simple proceed decision."
+      : pressure >= 72
       ? "Decision pressure is high. Acting immediately may increase regret risk."
-      : pressure >= 38
+      : pressure >= 38 || hasHighRiskBias || results.length >= 2
       ? "Some pressure signals are present. A short delay and comparison with alternatives may improve clarity."
       : "Decision pressure is low. The current framing does not show strong urgency, fear, or social-pressure signals.";
 
