@@ -224,46 +224,134 @@ function analyseDecision(text) {
   const hasAnyMeaningfulSignal = Boolean(topBias && topBias.score >= 26);
   const isEmptyInput = text.trim().length === 0;
 
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  const strongStop = [
+    "Do not proceed yet",
+    "Pause before committing",
+    "Hold this decision",
+    "Stop and reassess",
+    "Delay this action"
+  ];
+
+  const moderate = [
+    "Proceed carefully",
+    "Slow down and evaluate",
+    "Consider alternatives first",
+    "Review before deciding",
+    "Take a step back"
+  ];
+
+  const positive = [
+    "Low pressure detected",
+    "Reasonable to proceed",
+    "Decision looks stable",
+    "No strong red flags",
+    "Safe to continue"
+  ];
+
   let recommendation = "Add more context first";
   let tone = "moderate";
 
   if (isEmptyInput) {
     recommendation = "Add more context first";
-    tone = "moderate";
   } else if (extremeRisk && extremeRisk.score >= 38) {
-    recommendation = "Do not decide yet";
+    recommendation = pick(strongStop);
     tone = "caution";
-  } else if (pressure >= 78 || hasStrongSignal) {
-    recommendation = "Do not decide yet";
+  } else if (pressure >= 75 || hasStrongSignal) {
+    recommendation = pick(strongStop);
     tone = "caution";
-  } else if (pressure >= 42 || hasHighRiskBias || hasMultipleSignals) {
-    recommendation = "Delay and compare alternatives";
-    tone = "moderate";
-  } else if (hasAnyMeaningfulSignal) {
-    recommendation = "Proceed with caution";
+  } else if (pressure >= 40 || hasHighRiskBias || hasMultipleSignals) {
+    recommendation = pick(moderate);
     tone = "moderate";
   } else {
-    recommendation = "Low pressure detected";
+    recommendation = pick(positive);
     tone = "positive";
   }
 
+  const reasonVariants = [
+    "This decision shows signs of cognitive pressure rather than pure evaluation.",
+    "Your wording suggests behavioural influence rather than neutral judgment.",
+    "There are subtle signals indicating bias may be affecting this decision.",
+    "The framing of this choice reveals potential psychological pressure.",
+    "Some elements of this decision appear emotionally or socially driven."
+  ];
+
+  const riskVariants = [
+    "The downside risk may not be fully considered.",
+    "There may be hidden costs or irreversible consequences.",
+    "Execution risk appears higher than expected.",
+    "Future regret probability is non-trivial.",
+    "This may reduce optionality going forward."
+  ];
+
+  const safeVariants = [
+    "No strong distortions are visible in the current wording.",
+    "The structure appears relatively balanced.",
+    "This looks like a considered decision.",
+    "There are no dominant behavioural signals detected.",
+    "The decision framing appears stable."
+  ];
+
+  const universalAdvice = [
+    "Clarify your objective before deciding.",
+    "List 2–3 alternatives before committing.",
+    "Check if this aligns with your long-term priorities.",
+    "Consider what future-you would think about this.",
+    "Pause and evaluate the trade-offs explicitly."
+  ];
+
+  const contextualPrompts = [
+    "What are you optimizing for: speed, safety, or upside?",
+    "What happens if you do nothing instead?",
+    "What assumptions are you making here?",
+    "What would a rational outsider advise?",
+    "What is the hidden downside?"
+  ];
+
+  const expansionLines = [
+    "This situation likely contains more variables than currently described.",
+    "The decision context may be incomplete or simplified.",
+    "Additional factors could materially change the outcome.",
+    "The current framing may omit important constraints.",
+    "There may be unseen second-order effects."
+  ];
+
   const mainReason = isEmptyInput
-    ? "Enter a real decision with context, trade-offs, urgency, cost, and alternatives before relying on the recommendation."
+    ? pick(universalAdvice)
     : topBias
-    ? `The strongest signal is ${topBias.name}. This suggests the decision may be influenced by ${topBias.label.toLowerCase()} rather than only objective value.`
-    : "No dominant behavioural bias was detected. This does not prove the decision is safe; it only means the current wording contains limited pressure signals.";
+    ? `${pick(reasonVariants)} The strongest signal is ${topBias.name}.`
+    : `${pick(safeVariants)} ${pick(expansionLines)}`;
 
   const secondaryReason = isEmptyInput
-    ? "The tool is intentionally conservative: without enough information, it will not suggest proceeding."
-    : extremeRisk && extremeRisk.score >= 38
-    ? "This is a large or hard-to-reverse decision with weak planning signals. It should not be treated as a simple proceed decision."
-    : pressure >= 78 || hasStrongSignal
-    ? "Decision pressure is high. Acting immediately may increase regret risk. Pause before committing."
-    : pressure >= 42 || hasHighRiskBias || hasMultipleSignals
-    ? "Several pressure signals or unresolved risks are present. Compare alternatives before acting."
-    : hasAnyMeaningfulSignal
-    ? "The decision may still be reasonable, but there is at least one behavioural pressure signal. Check the downside before acting."
-    : "Decision pressure appears low based on the current wording, but this is not a guarantee. Add more detail if the decision has financial, career, or irreversible consequences.";
+    ? pick(contextualPrompts)
+    : pressure >= 75
+    ? `${pick(riskVariants)} ${pick(contextualPrompts)}`
+    : pressure >= 40
+    ? `${pick(reasonVariants)} ${pick(universalAdvice)}`
+    : `${pick(safeVariants)} ${pick(contextualPrompts)}`;
+
+  const synthesisVariants = [
+    "Overall, this decision should be approached with caution. The signals suggest that your current framing may be influenced by behavioural pressure rather than purely objective evaluation.",
+    "From a structural perspective, this decision contains elements that could lead to suboptimal outcomes if executed without further reflection.",
+    "Taken together, the signals indicate that this is not purely a neutral decision — there are underlying pressures shaping the choice.",
+    "At a higher level, this decision appears to be influenced by psychological or contextual factors that may not be fully visible.",
+    "In summary, this decision is not necessarily wrong, but it is not yet sufficiently robust given the current framing."
+  ];
+
+  const actionVariants = [
+    "Before proceeding, it would be useful to explicitly define alternatives and compare them under the same criteria.",
+    "A practical next step would be to slow down and stress-test the downside scenario.",
+    "You may want to pause and evaluate whether this still makes sense under different assumptions.",
+    "Consider stepping back and reframing the decision as if advising someone else.",
+    "It may help to delay action slightly and revisit this with a clearer objective."
+  ];
+
+  const gptStyleOutput = isEmptyInput
+    ? "Provide more context so the decision can be evaluated meaningfully."
+    : `${pick(synthesisVariants)} ${mainReason} ${secondaryReason} ${pick(actionVariants)}`;
 
   return {
     decisionType: detectDecisionType(text),
@@ -274,6 +362,7 @@ function analyseDecision(text) {
     tone,
     mainReason,
     secondaryReason,
+    gptStyleOutput,
     generatedAt: new Date().toLocaleString()
   };
 }
@@ -595,8 +684,9 @@ export default function App() {
             {current.recommendation}
           </h2>
 
-          <p className="nl-reason-text" style={styles.reasonText}>{current.mainReason}</p>
-          <p className="nl-reason-text" style={styles.reasonText}>{current.secondaryReason}</p>
+          <p className="nl-reason-text" style={styles.reasonText}>
+            {current.gptStyleOutput}
+          </p>
 
           <div className="nl-index-row" style={styles.indexRow}>
             <div className="feedback-reveal delay-2 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
