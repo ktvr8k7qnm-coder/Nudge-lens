@@ -355,7 +355,7 @@ export default function App() {
   }
 
   return (
-    <div style={styles.page}>
+    <div className="nl-page" style={styles.page}>
       <style>{`
         @keyframes feedbackReveal {
           from {
@@ -399,22 +399,145 @@ export default function App() {
         .delay-3 { animation-delay: 360ms, 360ms; }
         .delay-4 { animation-delay: 500ms, 500ms; }
         .delay-5 { animation-delay: 650ms, 650ms; }
+
+        @media (max-width: 640px) {
+          body {
+            overflow-x: hidden;
+          }
+
+          .nl-page {
+            padding: 18px 14px !important;
+            overflow-x: hidden !important;
+          }
+
+          .nl-shell {
+            width: 100% !important;
+            max-width: 430px !important;
+            margin: 0 auto !important;
+          }
+
+          .nl-title {
+            font-size: 30px !important;
+            line-height: 1.12 !important;
+            letter-spacing: -0.8px !important;
+          }
+
+          .nl-description {
+            max-width: 340px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            font-size: 14px !important;
+            line-height: 1.55 !important;
+          }
+
+          .nl-search-area {
+            margin: 20px auto 26px !important;
+          }
+
+          .nl-search-box {
+            min-height: 118px !important;
+            border-radius: 28px !important;
+            padding: 20px !important;
+            font-size: 16px !important;
+          }
+
+          .nl-recommendation-card,
+          .nl-analysis-card {
+            width: 100% !important;
+            box-sizing: border-box !important;
+            border-radius: 28px !important;
+            padding: 22px 18px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+
+          .nl-top-row {
+            align-items: flex-start !important;
+            gap: 10px !important;
+          }
+
+          .nl-decision-type {
+            max-width: 155px !important;
+            text-align: center !important;
+            line-height: 1.25 !important;
+          }
+
+          .nl-recommendation-text {
+            font-size: 30px !important;
+            line-height: 1.12 !important;
+            text-align: center !important;
+            margin-top: 18px !important;
+          }
+
+          .nl-reason-text {
+            font-size: 15px !important;
+            line-height: 1.72 !important;
+            text-align: center !important;
+          }
+
+          .nl-index-row {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+            align-items: stretch !important;
+            margin-top: 22px !important;
+          }
+
+          .nl-index-box {
+            min-width: 0 !important;
+            min-height: 92px !important;
+            padding: 14px 8px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+            word-break: normal !important;
+            overflow-wrap: normal !important;
+          }
+
+          .nl-index-box span {
+            display: block !important;
+            font-size: 13px !important;
+            line-height: 1.25 !important;
+            color: #3c4043 !important;
+          }
+
+          .nl-index-box strong {
+            display: block !important;
+            margin-top: 5px !important;
+            font-size: 16px !important;
+            line-height: 1.2 !important;
+          }
+
+          .nl-section-title {
+            text-align: center !important;
+            font-size: 24px !important;
+            margin-bottom: 18px !important;
+          }
+
+          .nl-analysis-summary {
+            text-align: center !important;
+            padding: 18px 14px !important;
+          }
+        }
       `}</style>
-      <div style={styles.shell}>
+      <div className="nl-shell" style={styles.shell}>
         <header style={styles.header}>
           <div style={styles.logoRow}>
             <span style={styles.logoDot}></span>
             <span style={styles.productName}>NudgeLens</span>
           </div>
 
-          <h1 style={styles.title}>Decision Reflection Assistant</h1>
-          <p style={styles.description}>
+          <h1 className="nl-title" style={styles.title}>Decision Reflection Assistant</h1>
+          <p className="nl-description" style={styles.description}>
             Describe a decision in English or Chinese, and NudgeLens will identify possible behavioural pressure before you act.
           </p>
         </header>
 
-        <main style={styles.searchArea}>
+        <main className="nl-search-area" style={styles.searchArea}>
           <textarea
+            className="nl-search-box"
             style={{ ...styles.searchBox, animation: hasInput ? "inputBreath 2.8s ease-in-out infinite" : "none" }}
             value={input}
             onChange={(event) => {
@@ -444,7 +567,7 @@ export default function App() {
         {hasInput && (
           <>
         <section
-          className="feedback-reveal delay-1"
+          className="feedback-reveal delay-1 nl-recommendation-card"
           style={{
             ...styles.recommendationCard,
             borderColor: accentColor,
@@ -452,12 +575,13 @@ export default function App() {
             "--glow": glowColor
           }}
         >
-          <div style={styles.topRow}>
+          <div className="nl-top-row" style={styles.topRow}>
             <span style={styles.cardLabel}>General decision</span>
-            <span style={styles.decisionType}>{current.decisionType}</span>
+            <span className="nl-decision-type" style={styles.decisionType}>{current.decisionType}</span>
           </div>
 
           <h2
+            className="nl-recommendation-text"
             style={{
               ...styles.recommendationText,
               color:
@@ -471,19 +595,19 @@ export default function App() {
             {current.recommendation}
           </h2>
 
-          <p style={styles.reasonText}>{current.mainReason}</p>
-          <p style={styles.reasonText}>{current.secondaryReason}</p>
+          <p className="nl-reason-text" style={styles.reasonText}>{current.mainReason}</p>
+          <p className="nl-reason-text" style={styles.reasonText}>{current.secondaryReason}</p>
 
-          <div style={styles.indexRow}>
-            <div className="feedback-reveal delay-2" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
+          <div className="nl-index-row" style={styles.indexRow}>
+            <div className="feedback-reveal delay-2 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Reflective index</span>
               <strong>{current.reflectiveIndex}</strong>
             </div>
-            <div className="feedback-reveal delay-3" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
+            <div className="feedback-reveal delay-3 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Decision pressure</span>
               <strong>{current.pressure}</strong>
             </div>
-            <div className="feedback-reveal delay-4" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
+            <div className="feedback-reveal delay-4 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Top signal</span>
               <strong>{topBias ? topBias.name : "None"}</strong>
             </div>
@@ -491,13 +615,13 @@ export default function App() {
         </section>
 
         <section
-          className="feedback-reveal delay-5"
+          className="feedback-reveal delay-5 nl-analysis-card"
           style={{ ...styles.analysisCard, borderColor: accentColor, "--glow": glowColor }}
         >
-          <h3 style={styles.sectionTitle}>Analysis</h3>
+          <h3 className="nl-section-title" style={styles.sectionTitle}>Analysis</h3>
 
           {topBias ? (
-            <div style={styles.analysisSummary}>
+            <div className="nl-analysis-summary" style={styles.analysisSummary}>
               <strong>{topBias.name}</strong>
               <p>{topBias.interpretation}</p>
               <p>{topBias.nudge}</p>
@@ -578,9 +702,12 @@ const styles = {
     background: "radial-gradient(circle at top, #f8fbff 0%, #ffffff 44%)",
     color: "#202124",
     fontFamily: "Arial, sans-serif",
-    padding: "28px"
+    padding: "28px",
+    boxSizing: "border-box",
+    overflowX: "hidden"
   },
   shell: {
+    width: "100%",
     maxWidth: "980px",
     margin: "0 auto"
   },
@@ -672,7 +799,8 @@ const styles = {
     padding: "26px",
     background: "#ffffff",
     boxShadow: "0 8px 30px rgba(60,64,67,.11)",
-    marginBottom: "20px"
+    marginBottom: "20px",
+    boxSizing: "border-box"
   },
   topRow: {
     display: "flex",
@@ -715,14 +843,17 @@ const styles = {
     background: "#f8fafd",
     border: "1.5px solid #e8eaed",
     borderRadius: "22px",
-    padding: "16px"
+    padding: "16px",
+    boxSizing: "border-box",
+    textAlign: "center"
   },
   analysisCard: {
     border: "1.5px solid #dadce0",
     borderRadius: "30px",
     padding: "24px",
     background: "#ffffff",
-    boxShadow: "0 8px 30px rgba(60,64,67,.11)"
+    boxShadow: "0 8px 30px rgba(60,64,67,.11)",
+    boxSizing: "border-box"
   },
   sectionTitle: {
     marginTop: 0,
