@@ -371,6 +371,9 @@ export default function App() {
   const [input, setInput] = useState("");
   const [savedAnalysis, setSavedAnalysis] = useState(null);
   const [history, setHistory] = useState([]);
+  const [animatedPressure, setAnimatedPressure] = useState(0);
+  const [animatedReflective, setAnimatedReflective] = useState(0);
+  const [animatedTopSignal, setAnimatedTopSignal] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem("nudgelens-history");
@@ -379,6 +382,42 @@ export default function App() {
 
   const liveAnalysis = useMemo(() => analyseDecision(input), [input]);
   const current = savedAnalysis || liveAnalysis;
+
+  useEffect(() => {
+    if (!input) {
+      setAnimatedPressure(0);
+      setAnimatedReflective(0);
+      setAnimatedTopSignal("");
+      return;
+    }
+
+    let interval;
+
+    function randomize() {
+      setAnimatedPressure(Math.floor(Math.random() * 100));
+      setAnimatedReflective(Math.floor(Math.random() * 100));
+      setAnimatedTopSignal(
+        Math.random() > 0.5
+          ? current.results[0]?.name || "None"
+          : "Analyzing..."
+      );
+    }
+
+    randomize();
+    interval = setInterval(randomize, 120);
+
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      setAnimatedPressure(current.pressure);
+      setAnimatedReflective(current.reflectiveIndex);
+      setAnimatedTopSignal(current.results[0]?.name || "None");
+    }, 800);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [input, current]);
   const topBias = current.results[0];
   const hasInput = input.trim().length > 0;
   const accentColor =
@@ -691,15 +730,15 @@ export default function App() {
           <div className="nl-index-row" style={styles.indexRow}>
             <div className="feedback-reveal delay-2 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Reflective index</span>
-              <strong>{current.reflectiveIndex}</strong>
+              <strong>{animatedReflective}</strong>
             </div>
             <div className="feedback-reveal delay-3 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Decision pressure</span>
-              <strong>{current.pressure}</strong>
+              <strong>{animatedPressure}</strong>
             </div>
             <div className="feedback-reveal delay-4 nl-index-box" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Top signal</span>
-              <strong>{topBias ? topBias.name : "None"}</strong>
+              <strong>{animatedTopSignal}</strong>
             </div>
           </div>
         </section>
