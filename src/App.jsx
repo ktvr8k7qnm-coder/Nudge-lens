@@ -215,37 +215,55 @@ function analyseDecision(text) {
 
   const topBias = results[0];
   const extremeRisk = results.find((item) => item.id === "extreme_risk");
-  const highRiskBiasIds = ["extreme_risk", "overconfidence", "loss_aversion", "sunk_cost"];
+  const highRiskBiasIds = ["extreme_risk", "overconfidence", "loss_aversion", "sunk_cost", "present_bias"];
   const hasHighRiskBias = results.some(
     (item) => highRiskBiasIds.includes(item.id) && item.score >= 38
   );
+  const hasMultipleSignals = results.length >= 2;
+  const hasStrongSignal = Boolean(topBias && topBias.score >= 64);
+  const hasAnyMeaningfulSignal = Boolean(topBias && topBias.score >= 26);
+  const isEmptyInput = text.trim().length === 0;
 
-  let recommendation = "Reasonable to proceed";
-  let tone = "positive";
+  let recommendation = "Add more context first";
+  let tone = "moderate";
 
-  if (extremeRisk && extremeRisk.score >= 38) {
+  if (isEmptyInput) {
+    recommendation = "Add more context first";
+    tone = "moderate";
+  } else if (extremeRisk && extremeRisk.score >= 38) {
     recommendation = "Do not decide yet";
     tone = "caution";
-  } else if (pressure >= 72 || (topBias && topBias.score >= 72)) {
+  } else if (pressure >= 78 || hasStrongSignal) {
     recommendation = "Do not decide yet";
     tone = "caution";
-  } else if (pressure >= 38 || hasHighRiskBias || results.length >= 2) {
+  } else if (pressure >= 42 || hasHighRiskBias || hasMultipleSignals) {
     recommendation = "Delay and compare alternatives";
     tone = "moderate";
+  } else if (hasAnyMeaningfulSignal) {
+    recommendation = "Proceed with caution";
+    tone = "moderate";
+  } else {
+    recommendation = "Low pressure detected";
+    tone = "positive";
   }
 
-  const mainReason = topBias
+  const mainReason = isEmptyInput
+    ? "Enter a real decision with context, trade-offs, urgency, cost, and alternatives before relying on the recommendation."
+    : topBias
     ? `The strongest signal is ${topBias.name}. This suggests the decision may be influenced by ${topBias.label.toLowerCase()} rather than only objective value.`
-    : "No dominant behavioural bias was detected. The decision language appears relatively balanced.";
+    : "No dominant behavioural bias was detected. This does not prove the decision is safe; it only means the current wording contains limited pressure signals.";
 
-  const secondaryReason =
-    extremeRisk && extremeRisk.score >= 38
-      ? "This is a large or hard-to-reverse decision with weak planning signals. It should not be treated as a simple proceed decision."
-      : pressure >= 72
-      ? "Decision pressure is high. Acting immediately may increase regret risk."
-      : pressure >= 38 || hasHighRiskBias || results.length >= 2
-      ? "Some pressure signals are present. A short delay and comparison with alternatives may improve clarity."
-      : "Decision pressure is low. The current framing does not show strong urgency, fear, or social-pressure signals.";
+  const secondaryReason = isEmptyInput
+    ? "The tool is intentionally conservative: without enough information, it will not suggest proceeding."
+    : extremeRisk && extremeRisk.score >= 38
+    ? "This is a large or hard-to-reverse decision with weak planning signals. It should not be treated as a simple proceed decision."
+    : pressure >= 78 || hasStrongSignal
+    ? "Decision pressure is high. Acting immediately may increase regret risk. Pause before committing."
+    : pressure >= 42 || hasHighRiskBias || hasMultipleSignals
+    ? "Several pressure signals or unresolved risks are present. Compare alternatives before acting."
+    : hasAnyMeaningfulSignal
+    ? "The decision may still be reasonable, but there is at least one behavioural pressure signal. Check the downside before acting."
+    : "Decision pressure appears low based on the current wording, but this is not a guarantee. Add more detail if the decision has financial, career, or irreversible consequences.";
 
   return {
     decisionType: detectDecisionType(text),
@@ -273,6 +291,19 @@ export default function App() {
   const liveAnalysis = useMemo(() => analyseDecision(input), [input]);
   const current = savedAnalysis || liveAnalysis;
   const topBias = current.results[0];
+  const hasInput = input.trim().length > 0;
+  const accentColor =
+    current.tone === "caution"
+      ? "#d93025"
+      : current.tone === "moderate"
+      ? "#f29900"
+      : "#188038";
+  const glowColor =
+    current.tone === "caution"
+      ? "rgba(217,48,37,.22)"
+      : current.tone === "moderate"
+      ? "rgba(242,153,0,.24)"
+      : "rgba(24,128,56,.22)";
 
   function runAnalysis() {
     const next = analyseDecision(input);
@@ -325,6 +356,50 @@ export default function App() {
 
   return (
     <div style={styles.page}>
+      <style>{`
+        @keyframes feedbackReveal {
+          from {
+            opacity: 0;
+            transform: translateY(22px) scale(.985);
+            filter: blur(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+          }
+        }
+
+        @keyframes borderGlow {
+          0% {
+            box-shadow: 0 0 0 rgba(26,115,232,0);
+          }
+          45% {
+            box-shadow: 0 0 36px var(--glow);
+          }
+          100% {
+            box-shadow: 0 8px 30px rgba(60,64,67,.11);
+          }
+        }
+
+        @keyframes inputBreath {
+          0% { box-shadow: 0 1px 6px rgba(32,33,36,.18); }
+          50% { box-shadow: 0 8px 28px rgba(26,115,232,.16); }
+          100% { box-shadow: 0 1px 6px rgba(32,33,36,.18); }
+        }
+
+        .feedback-reveal {
+          opacity: 0;
+          animation: feedbackReveal 620ms cubic-bezier(.2,.8,.2,1) forwards,
+                     borderGlow 1300ms ease-out forwards;
+        }
+
+        .delay-1 { animation-delay: 80ms, 80ms; }
+        .delay-2 { animation-delay: 220ms, 220ms; }
+        .delay-3 { animation-delay: 360ms, 360ms; }
+        .delay-4 { animation-delay: 500ms, 500ms; }
+        .delay-5 { animation-delay: 650ms, 650ms; }
+      `}</style>
       <div style={styles.shell}>
         <header style={styles.header}>
           <div style={styles.logoRow}>
@@ -340,7 +415,7 @@ export default function App() {
 
         <main style={styles.searchArea}>
           <textarea
-            style={styles.searchBox}
+            style={{ ...styles.searchBox, animation: hasInput ? "inputBreath 2.8s ease-in-out infinite" : "none" }}
             value={input}
             onChange={(event) => {
               setInput(event.target.value);
@@ -366,9 +441,19 @@ export default function App() {
           </div>
         </main>
 
-        <section style={styles.recommendationCard}>
+        {hasInput && (
+          <>
+        <section
+          className="feedback-reveal delay-1"
+          style={{
+            ...styles.recommendationCard,
+            borderColor: accentColor,
+            background: `linear-gradient(135deg, #ffffff 0%, ${glowColor} 100%)`,
+            "--glow": glowColor
+          }}
+        >
           <div style={styles.topRow}>
-            <span style={styles.cardLabel}>Primary recommendation</span>
+            <span style={styles.cardLabel}>General decision</span>
             <span style={styles.decisionType}>{current.decisionType}</span>
           </div>
 
@@ -390,22 +475,25 @@ export default function App() {
           <p style={styles.reasonText}>{current.secondaryReason}</p>
 
           <div style={styles.indexRow}>
-            <div style={styles.indexBox}>
+            <div className="feedback-reveal delay-2" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Reflective index</span>
               <strong>{current.reflectiveIndex}</strong>
             </div>
-            <div style={styles.indexBox}>
+            <div className="feedback-reveal delay-3" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Decision pressure</span>
               <strong>{current.pressure}</strong>
             </div>
-            <div style={styles.indexBox}>
+            <div className="feedback-reveal delay-4" style={{ ...styles.indexBox, borderColor: accentColor, "--glow": glowColor }}>
               <span>Top signal</span>
               <strong>{topBias ? topBias.name : "None"}</strong>
             </div>
           </div>
         </section>
 
-        <section style={styles.analysisCard}>
+        <section
+          className="feedback-reveal delay-5"
+          style={{ ...styles.analysisCard, borderColor: accentColor, "--glow": glowColor }}
+        >
           <h3 style={styles.sectionTitle}>Analysis</h3>
 
           {topBias ? (
@@ -476,6 +564,8 @@ export default function App() {
             )}
           </details>
         </section>
+          </>
+        )}
       </div>
       <Analytics />
     </div>
@@ -485,7 +575,7 @@ export default function App() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#ffffff",
+    background: "radial-gradient(circle at top, #f8fbff 0%, #ffffff 44%)",
     color: "#202124",
     fontFamily: "Arial, sans-serif",
     padding: "28px"
@@ -577,11 +667,11 @@ const styles = {
     marginTop: "8px"
   },
   recommendationCard: {
-    border: "1px solid #dadce0",
+    border: "1.5px solid #dadce0",
     borderRadius: "30px",
     padding: "26px",
     background: "#ffffff",
-    boxShadow: "0 1px 2px rgba(60,64,67,.08), 0 2px 8px rgba(60,64,67,.08)",
+    boxShadow: "0 8px 30px rgba(60,64,67,.11)",
     marginBottom: "20px"
   },
   topRow: {
@@ -623,16 +713,16 @@ const styles = {
   },
   indexBox: {
     background: "#f8fafd",
-    border: "1px solid #e8eaed",
+    border: "1.5px solid #e8eaed",
     borderRadius: "22px",
     padding: "16px"
   },
   analysisCard: {
-    border: "1px solid #dadce0",
+    border: "1.5px solid #dadce0",
     borderRadius: "30px",
     padding: "24px",
     background: "#ffffff",
-    boxShadow: "0 1px 2px rgba(60,64,67,.08), 0 2px 8px rgba(60,64,67,.08)"
+    boxShadow: "0 8px 30px rgba(60,64,67,.11)"
   },
   sectionTitle: {
     marginTop: 0,
