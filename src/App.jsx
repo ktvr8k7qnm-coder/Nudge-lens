@@ -738,7 +738,8 @@ const styles = {
     lineHeight: 1.1,
     fontWeight: 600,
     letterSpacing: "-1.4px",
-    margin: 0
+    margin: 0,
+    color: "#1a73e8"
   },
   description: {
     color: "#5f6368",
