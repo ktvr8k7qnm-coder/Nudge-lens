@@ -99,16 +99,15 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <div className="nl-container" style={{ width: "100%", maxWidth: 900 }}>
+      <div className="nl-container" style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}>
       <style>{`
       html, body, #root {
         margin: 0;
         padding: 0;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
         min-height: 100vh;
-        overflow-x: hidden;
         background: #ffffff !important;
+        overflow-x: hidden;
       }
 
       body {
@@ -116,8 +115,8 @@ export default function App() {
       }
 
       #root {
-        display: flex;
-        flex-direction: column;
+        width: 100vw;
+        min-height: 100vh;
         background: #ffffff !important;
       }
 
@@ -239,9 +238,7 @@ const styles = {
     paddingTop: 60,
     boxSizing: "border-box",
     fontFamily: "Arial",
-    margin: 0,
-    display: "flex",
-    justifyContent: "center"
+    margin: 0
   },
   title: {
     fontSize: 42,
