@@ -175,49 +175,102 @@ function generateHeadline(pressure, drivers, tension, bias) {
 function analyzeDecision(text) {
   const t = normalize(text);
 
+  // 🧠 STATE LAYER (implicit cognition)
+  let state = {
+    energy: 0,
+    pressure: 0,
+    avoidance: 0,
+    desire: 0
+  };
+
+  if (t.includes("tired") || t.includes("累")) state.energy -= 1;
+  if (t.includes("stress") || t.includes("压力")) state.pressure += 1;
+  if (t.includes("dont want") || t.includes("不想")) state.avoidance += 1;
+  if (t.includes("want") || t.includes("想")) state.desire += 1;
+
+  // 🧠 PATTERN (higher abstraction)
+  let pattern = "neutral";
+
+  if (state.avoidance && state.energy < 0) pattern = "fatigue_avoidance";
+  else if (state.desire && state.pressure) pattern = "pressure_desire";
+  else if (state.pressure && state.avoidance) pattern = "stress_escape";
+
+  // ORIGINAL ENGINE (kept)
   const intent = detectIntent(t);
   const drivers = detectDrivers(t);
   const constraints = detectConstraints(t);
   const bias = detectBias(t);
   const tension = buildTension(drivers, constraints);
-  const scenario = simulate(intent);
-  const second = secondOrder(intent);
+  const scenarioBase = simulate(intent);
+  const secondBase = secondOrder(intent);
 
+  // 🧠 SCORE (slightly adjusted, invisible)
   let score =
-    drivers.length * 0.7 +
+    state.pressure * 1.2 +
+    state.avoidance * 1.1 +
+    state.desire * 0.6 +
     bias.reduce((a, b) => a + b.w, 0) +
-    tension.length * 0.8 -
-    constraints.length * 0.5;
+    tension.length * 0.5 -
+    constraints.length * 0.4;
 
-  const probability = sigmoid(score - 1.3);
+  const probability = sigmoid(score - 1.2);
   const pressure = Math.min(100, probability * 100);
 
+  // 🧠 HEADLINE (same style, better meaning)
+  let headline = generateHeadline(pressure, drivers, tension, bias);
+
+  // 🧠 QUICK (same density, more natural)
+  const quick = pick([
+    "Something about this feels slightly influenced by internal state.",
+    "There are subtle forces shaping this decision.",
+    "This may not be a fully neutral evaluation.",
+    "The current framing may lean toward immediate resolution."
+  ]);
+
+  // 🧠 DEEP (LLM-like but same structure)
+  const deep = `
+This decision appears to be influenced not only by external factors, but also by the current internal state.
+
+The detected pattern resembles ${pattern.replace("_", " ") || "a neutral condition"}, where behaviour may be shaped by momentary context rather than stable intention.
+
+${tension.length ? `There is a tension between ${tension.join(", ")}, suggesting competing priorities.` : ""}
+
+Behavioural signals (${bias.map(b => b.id).join(", ") || "minimal"}) indicate that the evaluation may not be entirely objective.
+
+In similar cases, decisions often reflect the state of mind at the moment, rather than the long-term structure of the situation.
+`;
+
+  // 🧠 SCENARIO (same format)
+  const scenario = `
+If you act: ${scenarioBase.act} The current state is likely reinforced.
+
+If you wait: ${scenarioBase.wait} The internal state may shift, changing how the decision feels.
+
+This reflects a divergence between immediate response and state-adjusted judgment.
+`;
+
+  // 🧠 SECOND ORDER (same style)
+  const second = `
+Over time: ${secondBase}
+
+Repeated decisions under similar internal conditions tend to reinforce behavioural patterns, not just outcomes.
+`;
+
+  // 🧠 ACTION (same tone)
+  const action = pick([
+    "Take a moment before acting.",
+    "Re-evaluate without urgency.",
+    "Step back and reassess.",
+    "Let this sit briefly before committing."
+  ]);
+
   return {
-    headline: generateHeadline(pressure, drivers, tension, bias),
-    quick: pick([
-      "Something about this feels slightly rushed.",
-      "There are subtle forces shaping this decision.",
-      "This may lean toward short-term comfort."
-    ]),
-    deep: `
-This decision is influenced by ${drivers.join(", ") || "internal factors"}.
-
-Constraints such as ${constraints.join(", ") || "none"} exist, though they may not be fully considered.
-
-${tension.length ? `There is tension between ${tension.join(", ")}.` : ""}
-
-Behavioural signals (${bias.map(b => b.id).join(", ") || "none"}) suggest the evaluation may not be entirely neutral.
-`,
-    scenario: `
-If you act: ${scenario.act}
-If you wait: ${scenario.wait}
-`,
-    second: `Over time: ${second}`,
-    action: pick([
-      "Take a moment before acting.",
-      "Re-evaluate without urgency.",
-      "Step back and reassess."
-    ])
+    headline,
+    quick,
+    deep,
+    scenario,
+    second,
+    action
   };
 }
 
@@ -273,3 +326,4 @@ export default function App() {
     </div>
   );
 }
+
