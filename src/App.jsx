@@ -119,6 +119,8 @@ export default function App() {
       }
 
       #root {
+        width: 100vw;
+        min-height: 100vh;
         background: #ffffff !important;
       }
 
@@ -234,11 +236,8 @@ export default function App() {
 
 const styles = {
   page: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
+    width: "100vw",
+    minHeight: "100vh",
     background: "#ffffff",
     paddingTop: 60,
     boxSizing: "border-box",
