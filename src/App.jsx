@@ -212,38 +212,58 @@ export default function App() {
 
 const styles = {
   page: {
-    padding: 40,
-    fontFamily: "Arial",
-    background: "#fff"
+    width: "100%",
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    background: "#fff",
+    paddingTop: 60,
+    boxSizing: "border-box",
+    fontFamily: "Arial"
   },
   title: {
-    fontSize: 36,
-    marginBottom: 20,
-    color: "#1a73e8"
+    fontSize: 42,
+    marginBottom: 24,
+    color: "#1a73e8",
+    textAlign: "center"
   },
   searchBox: {
     width: "100%",
-    minHeight: 120,
+    maxWidth: 720,
+    margin: "0 auto",
+    minHeight: 140,
     border: "1px solid #dadce0",
-    borderRadius: 28,
-    padding: 20,
-    fontSize: 16,
+    borderRadius: 32,
+    padding: 24,
+    fontSize: 17,
     borderColor: "#dadce0",
-    transition: "all 0.3s ease"
+    transition: "all 0.3s ease",
+    display: "block"
   },
   button: {
-    marginTop: 20,
-    padding: "10px 20px",
+    marginTop: 24,
+    padding: "12px 28px",
     background: "#1a73e8",
     color: "#fff",
     border: "none",
-    borderRadius: 20
+    borderRadius: 999,
+    display: "block",
+    marginLeft: "auto",
+    marginRight: "auto"
   },
   feedback: {
-    marginTop: 30
+    marginTop: 40,
+    maxWidth: 720,
+    marginLeft: "auto",
+    marginRight: "auto",
+    textAlign: "center"
   },
   metrics: {
-    marginTop: 10,
-    opacity: 0.6
+    marginTop: 16,
+    opacity: 0.6,
+    display: "flex",
+    justifyContent: "center",
+    gap: 24
   }
 };
