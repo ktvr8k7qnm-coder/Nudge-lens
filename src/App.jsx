@@ -98,7 +98,8 @@ export default function App() {
   }
 
   return (
-    <div style={styles.page} className="nl-container">
+    <div style={styles.page}>
+      <div className="nl-container" style={{ maxWidth: 1100, margin: "0 auto" }}>
       <style>{`
       body, html, #root {
         margin: 0;
@@ -209,6 +210,7 @@ export default function App() {
       )}
 
       <Analytics />
+      </div>
     </div>
   );
 }
@@ -220,12 +222,7 @@ export default function App() {
 const styles = {
   page: {
     width: "100%",
-    overflowX: "hidden",
-    margin: 0,
     minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "flex-start",
     background: "#f8f9fb",
     paddingTop: 60,
     boxSizing: "border-box",
