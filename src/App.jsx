@@ -51,13 +51,33 @@ function analyseDecision(text) {
     pressure > 40 ? "Proceed carefully" :
     "Looks reasonable";
 
+  let summary;
+  let why;
+  let action;
+
+  if (pressure > 70) {
+    summary = "This decision looks risky right now.";
+    why = "Your wording suggests urgency or lack of planning, which often leads to regret.";
+    action = "Pause. Write down the worst-case scenario and one safer alternative.";
+  } else if (pressure > 40) {
+    summary = "There are some warning signs in this decision.";
+    why = "You may be influenced by short-term thinking or incomplete reasoning.";
+    action = "Take a step back and compare at least one alternative option.";
+  } else {
+    summary = "This decision looks relatively stable.";
+    why = "There are no strong behavioural pressure signals detected.";
+    action = "Proceed, but stay aware of new information.";
+  }
+
   return {
     results,
     pressure,
     reflectiveIndex,
     recommendation,
     tone: pressure > 70 ? "caution" : pressure > 40 ? "moderate" : "positive",
-    gptStyleOutput: "This decision may involve behavioural pressure."
+    summary,
+    why,
+    action
   };
 }
 
@@ -110,6 +130,20 @@ export default function App() {
         overflow-x: hidden;
       }
 
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      body {
+        background: #ffffff !important;
+      }
+
+      /* Ensure no horizontal overflow causing edges */
+      body, #root {
+        overflow-x: hidden;
+      }
+
       html {
         background: #ffffff !important;
       }
@@ -139,44 +173,6 @@ export default function App() {
           box-shadow: 0 1px 6px rgba(32,33,36,.18);
           border-color: #dadce0;
           background: #fff;
-        }
-      }
-
-      @media (min-width: 1200px) {
-        .nl-container {
-          max-width: 1100px;
-          margin: 0 auto;
-        }
-
-        .nl-title {
-          font-size: 48px;
-        }
-
-        .nl-textarea {
-          min-height: 180px;
-          font-size: 18px;
-          padding: 28px;
-          border-radius: 32px;
-        }
-
-        .nl-button {
-          padding: 14px 28px;
-          font-size: 16px;
-        }
-
-        .nl-feedback h2 {
-          font-size: 32px;
-        }
-
-        .nl-feedback p {
-          font-size: 18px;
-          line-height: 1.8;
-        }
-
-        .nl-metrics {
-          display: flex;
-          gap: 40px;
-          font-size: 16px;
         }
       }
 
@@ -215,7 +211,9 @@ export default function App() {
       {input && (
         <div style={styles.feedback} className="nl-feedback">
           <h2>{current.recommendation}</h2>
-          <p>{current.gptStyleOutput}</p>
+          <p style={{fontWeight: 500}}>{current.summary}</p>
+          <p style={{opacity: 0.7}}>{current.why}</p>
+          <p style={{marginTop: 10}}><b>Next step:</b> {current.action}</p>
 
           <div style={styles.metrics} className="nl-metrics">
             <div>Pressure: {current.pressure}</div>
