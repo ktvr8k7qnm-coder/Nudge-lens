@@ -99,7 +99,7 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <div className="nl-container" style={{ width: "100%" }}>
+      <div className="nl-container" style={{ width: "100%", maxWidth: "none" }}>
       <style>{`
       html, body, #root {
         margin: 0;
@@ -180,10 +180,6 @@ export default function App() {
         }
       }
 
-      * {
-        background: #ffffff;
-      }
-
       `}</style>
 
       <h1 style={styles.title} className="nl-title">NudgeLens</h1>
@@ -240,7 +236,7 @@ export default function App() {
 
 const styles = {
   page: {
-    width: "100vw",
+    width: "100%",
     minHeight: "100vh",
     background: "#ffffff",
     paddingTop: 60,
