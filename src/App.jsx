@@ -104,10 +104,14 @@ export default function App() {
       html, body, #root {
         margin: 0;
         padding: 0;
-        width: 100vw;
-        min-height: 100vh;
+        width: 100%;
+        height: 100%;
         background: #ffffff !important;
         overflow-x: hidden;
+      }
+
+      html {
+        background: #ffffff !important;
       }
 
       body {
@@ -115,8 +119,6 @@ export default function App() {
       }
 
       #root {
-        width: 100vw;
-        min-height: 100vh;
         background: #ffffff !important;
       }
 
@@ -232,8 +234,11 @@ export default function App() {
 
 const styles = {
   page: {
-    width: "100vw",
-    minHeight: "100vh",
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
     background: "#ffffff",
     paddingTop: 60,
     boxSizing: "border-box",
