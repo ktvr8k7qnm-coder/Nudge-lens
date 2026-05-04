@@ -100,6 +100,13 @@ export default function App() {
   return (
     <div style={styles.page} className="nl-container">
       <style>{`
+      body, html, #root {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100%;
+        background: #f8f9fb;
+      }
 
       @keyframes inputBreath {
         0% {
@@ -213,11 +220,13 @@ export default function App() {
 const styles = {
   page: {
     width: "100%",
+    overflowX: "hidden",
+    margin: 0,
     minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "flex-start",
-    background: "#fff",
+    background: "#f8f9fb",
     paddingTop: 60,
     boxSizing: "border-box",
     fontFamily: "Arial"
