@@ -31,6 +31,16 @@ const BIAS_MODELS = [
     weight: 1.2,
     signals: ["now","today","tomorrow","马上","现在"],
     interpretation: "Short-term urgency bias"
+  },
+  {
+    id: "external_dependency",
+    weight: 1.5,
+    signals: [
+      "until he replies","until she replies","waiting for reply",
+      "until they reply","waiting for response","waiting for him",
+      "等他回复","等她回复","等回复","等他消息"
+    ],
+    interpretation: "Decision is dependent on external response"
   }
 ];
 
@@ -65,6 +75,12 @@ function analyseDecision(text) {
       }
     }
 
+    if (m.id === "external_dependency") {
+      if (input.includes("until") && (input.includes("reply") || input.includes("respond"))) {
+        hitCount += 2;
+      }
+    }
+
     const score = hitCount * 25 * m.weight;
 
     return { ...m, score };
@@ -78,20 +94,32 @@ function analyseDecision(text) {
   let summary, why, action;
 
   if (pressure > 70) {
-    summary = "This decision looks risky right now.";
+
+    summary = "This decision may not be as stable as it seems.";
 
     if (top?.id === "uncertainty_risk") {
       why = "You are acting without fully understanding the situation, which increases uncertainty and potential mistakes.";
       action = "List the key unknowns and reduce them before moving forward.";
+    } else if (top?.id === "external_dependency") {
+      why = "You are delaying action based on someone else's response, which reduces your control over the outcome.";
+      action = "Clarify what you can decide independently before waiting.";
     } else {
       why = "This involves a high-impact decision with urgency signals, which often leads to regret.";
       action = "Pause and simulate worst-case scenarios before acting.";
     }
 
   } else if (pressure > 40) {
-    summary = "There are some warning signs in this decision.";
-    why = "Your thinking may be influenced by incomplete reasoning or short-term pressure.";
-    action = "Compare at least one alternative before deciding.";
+
+    summary = "There are some hidden risks in this decision.";
+
+    if (top?.id === "external_dependency") {
+      why = "Your decision is partially dependent on someone else's response, which may limit your control.";
+      action = "Define what you will do if no reply comes.";
+    } else {
+      why = "Your thinking may be influenced by incomplete reasoning or short-term pressure.";
+      action = "Compare at least one alternative before deciding.";
+    }
+
   } else {
     summary = "This decision looks relatively stable.";
     why = "No strong behavioural risks detected in your description.";
@@ -104,6 +132,7 @@ function analyseDecision(text) {
     summary,
     why,
     action,
+    recommendation: summary, // 🔥 fix undefined UI issue
     topSignal: top?.id || null
   };
 }
