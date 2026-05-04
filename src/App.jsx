@@ -99,7 +99,7 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <div className="nl-container" style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div className="nl-container" style={{ width: "100%" }}>
       <style>{`
       html, body, #root {
         margin: 0;
@@ -225,10 +225,11 @@ const styles = {
   page: {
     width: "100%",
     minHeight: "100vh",
-    background: "#f8f9fb",
+    background: "#ffffff",
     paddingTop: 60,
     boxSizing: "border-box",
-    fontFamily: "Arial"
+    fontFamily: "Arial",
+    margin: 0,
   },
   title: {
     fontSize: 42,
@@ -238,8 +239,6 @@ const styles = {
   },
   searchBox: {
     width: "100%",
-    maxWidth: 720,
-    margin: "0 auto",
     minHeight: 140,
     border: "1px solid #dadce0",
     borderRadius: 32,
@@ -262,7 +261,6 @@ const styles = {
   },
   feedback: {
     marginTop: 40,
-    maxWidth: 720,
     marginLeft: "auto",
     marginRight: "auto",
     textAlign: "center"
