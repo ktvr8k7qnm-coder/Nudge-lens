@@ -106,7 +106,7 @@ export default function App() {
         padding: 0;
         width: 100%;
         min-height: 100%;
-        background: #f8f9fb;
+        background: #ffffff;
       }
 
       @keyframes inputBreath {
@@ -223,7 +223,7 @@ const styles = {
   page: {
     width: "100%",
     minHeight: "100vh",
-    background: "#f8f9fb",
+    background: "#ffffff",
     paddingTop: 60,
     boxSizing: "border-box",
     fontFamily: "Arial"
