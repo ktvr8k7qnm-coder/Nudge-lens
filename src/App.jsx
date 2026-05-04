@@ -101,12 +101,14 @@ export default function App() {
     <div style={styles.page}>
       <div className="nl-container" style={{ maxWidth: 1100, margin: "0 auto" }}>
       <style>{`
-      body, html, #root {
+      html, body, #root {
         margin: 0;
         padding: 0;
         width: 100%;
-        min-height: 100%;
-        background: #ffffff;
+        height: 100%;
+        min-height: 100vh;
+        overflow-x: hidden;
+        background: #ffffff !important;
       }
 
       @keyframes inputBreath {
@@ -223,7 +225,7 @@ const styles = {
   page: {
     width: "100%",
     minHeight: "100vh",
-    background: "#ffffff",
+    background: "#f8f9fb",
     paddingTop: 60,
     boxSizing: "border-box",
     fontFamily: "Arial"
