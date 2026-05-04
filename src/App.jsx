@@ -99,7 +99,7 @@ export default function App() {
 
   return (
     <div style={styles.page}>
-      <div className="nl-container" style={{ width: "100%", maxWidth: 900, margin: "0 auto" }}>
+      <div className="nl-container" style={{ width: "100%" }}>
       <style>{`
       html, body, #root {
         margin: 0;
@@ -178,6 +178,10 @@ export default function App() {
           gap: 40px;
           font-size: 16px;
         }
+      }
+
+      * {
+        background: #ffffff;
       }
 
       `}</style>
