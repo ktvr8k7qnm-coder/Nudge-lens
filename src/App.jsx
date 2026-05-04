@@ -98,7 +98,7 @@ export default function App() {
   }
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="nl-container">
       <style>{`
 
       @keyframes inputBreath {
@@ -119,11 +119,50 @@ export default function App() {
         }
       }
 
+      @media (min-width: 1200px) {
+        .nl-container {
+          max-width: 1100px;
+          margin: 0 auto;
+        }
+
+        .nl-title {
+          font-size: 48px;
+        }
+
+        .nl-textarea {
+          min-height: 180px;
+          font-size: 18px;
+          padding: 28px;
+          border-radius: 32px;
+        }
+
+        .nl-button {
+          padding: 14px 28px;
+          font-size: 16px;
+        }
+
+        .nl-feedback h2 {
+          font-size: 32px;
+        }
+
+        .nl-feedback p {
+          font-size: 18px;
+          line-height: 1.8;
+        }
+
+        .nl-metrics {
+          display: flex;
+          gap: 40px;
+          font-size: 16px;
+        }
+      }
+
       `}</style>
 
-      <h1 style={styles.title}>NudgeLens</h1>
+      <h1 style={styles.title} className="nl-title">NudgeLens</h1>
 
       <textarea
+        className="nl-textarea"
         style={{
           ...styles.searchBox,
           animation: hasInput ? "inputBreath 2.2s ease-in-out infinite" : "none",
@@ -146,16 +185,16 @@ export default function App() {
         }}
       />
 
-      <button onClick={runAnalysis} style={styles.button}>
+      <button onClick={runAnalysis} style={styles.button} className="nl-button">
         Analyse
       </button>
 
       {input && (
-        <div style={styles.feedback}>
+        <div style={styles.feedback} className="nl-feedback">
           <h2>{current.recommendation}</h2>
           <p>{current.gptStyleOutput}</p>
 
-          <div style={styles.metrics}>
+          <div style={styles.metrics} className="nl-metrics">
             <div>Pressure: {current.pressure}</div>
             <div>Reflective: {current.reflectiveIndex}</div>
           </div>
