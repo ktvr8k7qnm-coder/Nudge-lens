@@ -8,23 +8,29 @@ import { useEffect, useMemo, useState } from "react";
 const BIAS_MODELS = [
   {
     id: "extreme_risk",
-    name: "Extreme Decision Risk",
-    label: "large irreversible action without enough planning",
-    weight: 1.9,
-    signals: ["quit job","all savings","no plan","辞职","全部积蓄"],
-    interpretation: "High-risk structure.",
-    nudge: "Pause and define worst-case.",
-    question: "What irreversible harm could happen?"
+    weight: 2.0,
+    signals: [
+      "quit job","all savings","no plan","tomorrow","immediately",
+      "without plan","no backup","risk everything",
+      "辞职","全部积蓄","没有计划","马上"
+    ],
+    interpretation: "High-risk irreversible action"
+  },
+  {
+    id: "uncertainty_risk",
+    weight: 1.8,
+    signals: [
+      "without understanding","don't understand","not understand",
+      "unknown","unfamiliar","language","no experience",
+      "不了解","不会语言","没经验"
+    ],
+    interpretation: "Acting with incomplete understanding"
   },
   {
     id: "present_bias",
-    name: "Present Bias",
-    label: "short-term reward",
     weight: 1.2,
-    signals: ["now","immediately","现在","马上"],
-    interpretation: "Short-term reward dominates.",
-    nudge: "Translate into future cost.",
-    question: "Will this still feel good in a month?"
+    signals: ["now","today","tomorrow","马上","现在"],
+    interpretation: "Short-term urgency bias"
   }
 ];
 
@@ -37,47 +43,68 @@ function normalize(text) {
 }
 
 function analyseDecision(text) {
+  const input = text.toLowerCase();
+
   const results = BIAS_MODELS.map((m) => {
-    const hits = m.signals.filter(s => normalize(text).includes(s));
-    const score = hits.length * 30;
+    let hitCount = 0;
+
+    m.signals.forEach(s => {
+      if (input.includes(s)) hitCount++;
+    });
+
+    // semantic boosts
+    if (m.id === "uncertainty_risk") {
+      if (input.includes("without") && (input.includes("know") || input.includes("understand"))) {
+        hitCount += 2;
+      }
+    }
+
+    if (m.id === "extreme_risk") {
+      if (input.includes("going") && input.includes("country") && input.includes("tomorrow")) {
+        hitCount += 2;
+      }
+    }
+
+    const score = hitCount * 25 * m.weight;
+
     return { ...m, score };
-  }).filter(x => x.score > 0);
+  }).filter(r => r.score > 0);
 
   const pressure = Math.min(100, results.reduce((a,b)=>a+b.score,0));
   const reflectiveIndex = 100 - pressure;
 
-  const recommendation =
-    pressure > 70 ? "Pause before acting" :
-    pressure > 40 ? "Proceed carefully" :
-    "Looks reasonable";
+  const top = results.sort((a,b)=>b.score-a.score)[0];
 
-  let summary;
-  let why;
-  let action;
+  let summary, why, action;
 
   if (pressure > 70) {
     summary = "This decision looks risky right now.";
-    why = "Your wording suggests urgency or lack of planning, which often leads to regret.";
-    action = "Pause. Write down the worst-case scenario and one safer alternative.";
+
+    if (top?.id === "uncertainty_risk") {
+      why = "You are acting without fully understanding the situation, which increases uncertainty and potential mistakes.";
+      action = "List the key unknowns and reduce them before moving forward.";
+    } else {
+      why = "This involves a high-impact decision with urgency signals, which often leads to regret.";
+      action = "Pause and simulate worst-case scenarios before acting.";
+    }
+
   } else if (pressure > 40) {
     summary = "There are some warning signs in this decision.";
-    why = "You may be influenced by short-term thinking or incomplete reasoning.";
-    action = "Take a step back and compare at least one alternative option.";
+    why = "Your thinking may be influenced by incomplete reasoning or short-term pressure.";
+    action = "Compare at least one alternative before deciding.";
   } else {
     summary = "This decision looks relatively stable.";
-    why = "There are no strong behavioural pressure signals detected.";
-    action = "Proceed, but stay aware of new information.";
+    why = "No strong behavioural risks detected in your description.";
+    action = "Proceed, but stay adaptive.";
   }
 
   return {
-    results,
     pressure,
     reflectiveIndex,
-    recommendation,
-    tone: pressure > 70 ? "caution" : pressure > 40 ? "moderate" : "positive",
     summary,
     why,
-    action
+    action,
+    topSignal: top?.id || null
   };
 }
 
@@ -87,7 +114,6 @@ function analyseDecision(text) {
 
 export default function App() {
   const [input, setInput] = useState("");
-  const [savedAnalysis, setSavedAnalysis] = useState(null);
 
   /* 🔥 动态 placeholder */
   const placeholders = [
@@ -109,13 +135,10 @@ export default function App() {
 
   const placeholder = placeholders[placeholderIndex];
 
-  const current = savedAnalysis || analyseDecision(input);
+  const current = input ? analyseDecision(input) : null;
 
   const hasInput = input.trim().length > 0;
 
-  function runAnalysis() {
-    setSavedAnalysis(analyseDecision(input));
-  }
 
   return (
     <div style={styles.page}>
@@ -200,11 +223,10 @@ export default function App() {
         }}
         onChange={(e)=>{
           setInput(e.target.value);
-          setSavedAnalysis(null);
         }}
       />
 
-      <button onClick={runAnalysis} style={styles.button} className="nl-button">
+      <button style={styles.button} className="nl-button">
         Analyse
       </button>
 
