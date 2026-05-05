@@ -1,337 +1,539 @@
-import { Analytics } from "@vercel/analytics/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-/* =======================
-   🧠 BIAS MODELS（不改逻辑）
-======================= */
+/* =========================================================
+   NudgeLens Local Engine v3.0
+   - No API
+   - No OpenAI
+   - No data storage
+   - Detailed behavioural decision analysis
+   - Scenario-aware outputs
+   - Smooth kangaroo animation system
+========================================================= */
 
-const BIAS_MODELS = [
+const VERSION = "NudgeLens Local Engine v3.0";
+
+const SIGNALS = [
   {
-    id: "extreme_risk",
-    weight: 2.0,
-    signals: [
-      "quit job","all savings","no plan","tomorrow","immediately",
-      "without plan","no backup","risk everything",
-      "辞职","全部积蓄","没有计划","马上"
-    ],
-    interpretation: "High-risk irreversible action"
+    id: "urgency",
+    label: "Urgency Pressure",
+    category: "time",
+    weight: 18,
+    words: ["today", "tomorrow", "now", "immediately", "asap", "quickly", "right now", "马上", "现在", "今天", "明天", "立刻", "赶快"],
+    explanation: "The decision may be compressed by time pressure, which can reduce careful judgement.",
+    action: "Pause for one short review cycle before acting."
   },
   {
-    id: "uncertainty_risk",
-    weight: 1.8,
-    signals: [
-      "without understanding","don't understand","not understand",
-      "unknown","unfamiliar","language","no experience",
-      "不了解","不会语言","没经验"
-    ],
-    interpretation: "Acting with incomplete understanding"
+    id: "uncertainty",
+    label: "Information Gap",
+    category: "information",
+    weight: 22,
+    words: ["not sure", "unsure", "unknown", "don't know", "without understanding", "no idea", "不了解", "不知道", "不确定", "没想清楚"],
+    explanation: "Important information appears missing, increasing the probability of avoidable mistakes.",
+    action: "List the top three unknowns and reduce at least one before acting."
   },
   {
-    id: "present_bias",
-    weight: 1.2,
-    signals: ["now","today","tomorrow","马上","现在"],
-    interpretation: "Short-term urgency bias"
+    id: "no_plan",
+    label: "Weak Planning",
+    category: "planning",
+    weight: 24,
+    words: ["no plan", "without a plan", "without planning", "no backup", "没有计划", "没有准备", "没有后路", "没准备"],
+    explanation: "The current decision structure lacks a fallback path.",
+    action: "Create a minimum backup plan before committing."
+  },
+  {
+    id: "high_stakes",
+    label: "High-Stakes Move",
+    category: "impact",
+    weight: 28,
+    words: ["quit", "resign", "move country", "career", "all money", "relationship", "break up", "辞职", "换工作", "移民", "搬去另一个国家", "分手", "全部钱", "全部积蓄"],
+    explanation: "The decision may create lasting consequences and should not be treated casually.",
+    action: "Find a smaller reversible first step before full commitment."
   },
   {
     id: "external_dependency",
-    weight: 1.5,
-    signals: [
-      "until he replies","until she replies","waiting for reply",
-      "until they reply","waiting for response","waiting for him",
-      "等他回复","等她回复","等回复","等他消息"
-    ],
-    interpretation: "Decision is dependent on external response"
+    label: "External Dependency",
+    category: "control",
+    weight: 20,
+    words: ["until he replies", "until she replies", "waiting for reply", "waiting for response", "until they respond", "等他回复", "等她回复", "等回复", "等消息"],
+    explanation: "The decision depends on another person’s response, reducing your control.",
+    action: "Define what you will do if no reply comes."
+  },
+  {
+    id: "loss_aversion",
+    label: "Loss Aversion",
+    category: "emotion",
+    weight: 18,
+    words: ["afraid", "scared", "lose", "regret", "worried", "miss out", "fomo", "害怕", "后悔", "担心", "怕错过", "亏"],
+    explanation: "The decision may be driven by avoiding discomfort rather than pursuing value.",
+    action: "Separate the real downside from the emotional discomfort."
+  },
+  {
+    id: "social_pressure",
+    label: "Social Pressure",
+    category: "social",
+    weight: 15,
+    words: ["everyone", "friends", "people say", "popular", "trend", "别人", "大家", "朋友", "都说", "流行", "热门"],
+    explanation: "The decision may be influenced by social proof rather than personal fit.",
+    action: "Ask whether you would still choose this privately."
+  },
+  {
+    id: "overconfidence",
+    label: "Overconfidence",
+    category: "certainty",
+    weight: 19,
+    words: ["definitely", "sure", "guaranteed", "no risk", "cannot fail", "肯定", "一定", "绝对", "没风险", "稳赚"],
+    explanation: "The decision may underestimate uncertainty or downside risk.",
+    action: "Run a pre-mortem: imagine the decision failed badly and list why."
+  },
+  {
+    id: "avoidance",
+    label: "Avoidance Pattern",
+    category: "emotion",
+    weight: 17,
+    words: ["not going to do anything", "avoid", "delay", "later", "不想做", "拖延", "以后再说", "先不管"],
+    explanation: "Inaction may feel safe now but can increase future pressure.",
+    action: "Choose one small action that restores control."
   }
 ];
 
-/* =======================
-   🧠 ENGINE（简化）
-======================= */
-
 function normalize(text) {
-  return text.toLowerCase();
+  return text.toLowerCase().replace(/[.,!?;:，。！？；：]/g, " ");
+}
+
+function detectScenario(text) {
+  const t = normalize(text);
+
+  if (["quit", "resign", "career", "job", "辞职", "工作", "职业"].some(w => t.includes(w))) return "Career / work";
+  if (["move", "country", "language", "visa", "搬", "国家", "语言", "移民"].some(w => t.includes(w))) return "Life relocation";
+  if (["buy", "purchase", "price", "discount", "watch", "car", "买", "价格", "折扣", "手表", "车"].some(w => t.includes(w))) return "Purchase decision";
+  if (["relationship", "reply", "message", "break up", "date", "回复", "消息", "分手", "关系"].some(w => t.includes(w))) return "Relationship / social";
+  if (["study", "exam", "assignment", "course", "作业", "考试", "学习", "课程"].some(w => t.includes(w))) return "Study / productivity";
+  if (["invest", "stock", "crypto", "money", "投资", "股票", "基金", "钱"].some(w => t.includes(w))) return "Financial decision";
+
+  return "General decision";
 }
 
 function analyseDecision(text) {
-  const input = text.toLowerCase();
+  const cleaned = normalize(text.trim());
+  const isShort = cleaned.length < 25;
 
-  const results = BIAS_MODELS.map((m) => {
-    let hitCount = 0;
+  const matched = SIGNALS.map(signal => {
+    const hits = signal.words.filter(word => cleaned.includes(word.toLowerCase()));
+    return {
+      ...signal,
+      hits,
+      score: hits.length * signal.weight
+    };
+  }).filter(signal => signal.hits.length > 0);
 
-    m.signals.forEach(s => {
-      if (input.includes(s)) hitCount++;
-    });
+  let pressure = matched.reduce((sum, signal) => sum + signal.score, 0);
 
-    // semantic boosts
-    if (m.id === "uncertainty_risk") {
-      if (input.includes("without") && (input.includes("know") || input.includes("understand"))) {
-        hitCount += 2;
-      }
-    }
+  if (isShort) pressure += 12;
+  if (cleaned.includes("but") || cleaned.includes("但是") || cleaned.includes("但")) pressure += 12;
+  if (cleaned.includes("without") || cleaned.includes("没有")) pressure += 12;
+  if (cleaned.includes("tomorrow") && cleaned.includes("without")) pressure += 20;
+  if (cleaned.includes("country") && cleaned.includes("language")) pressure += 18;
 
-    if (m.id === "extreme_risk") {
-      if (input.includes("going") && input.includes("country") && input.includes("tomorrow")) {
-        hitCount += 2;
-      }
-    }
+  pressure = Math.max(0, Math.min(100, pressure));
 
-    if (m.id === "external_dependency") {
-      if (input.includes("until") && (input.includes("reply") || input.includes("respond"))) {
-        hitCount += 2;
-      }
-    }
+  const scenario = detectScenario(text);
+  const topSignal = matched.sort((a, b) => b.score - a.score)[0];
 
-    const score = hitCount * 25 * m.weight;
+  const category =
+    pressure >= 75 ? "risky" :
+    pressure >= 45 ? "uncertain" :
+    pressure >= 25 ? "clear" :
+    "calm";
 
-    return { ...m, score };
-  }).filter(r => r.score > 0);
+  let summary;
+  let advisorView;
+  let feasibility;
+  let nextStep;
 
-  const pressure = Math.min(100, results.reduce((a,b)=>a+b.score,0));
-  const reflectiveIndex = 100 - pressure;
-
-  const top = results.sort((a,b)=>b.score-a.score)[0];
-
-  let summary, why, action;
-
-  if (pressure > 70) {
-
-    summary = "This decision may not be as stable as it seems.";
-
-    if (top?.id === "uncertainty_risk") {
-      why = "You are acting without fully understanding the situation, which increases uncertainty and potential mistakes.";
-      action = "List the key unknowns and reduce them before moving forward.";
-    } else if (top?.id === "external_dependency") {
-      why = "You are delaying action based on someone else's response, which reduces your control over the outcome.";
-      action = "Clarify what you can decide independently before waiting.";
-    } else {
-      why = "This involves a high-impact decision with urgency signals, which often leads to regret.";
-      action = "Pause and simulate worst-case scenarios before acting.";
-    }
-
-  } else if (pressure > 40) {
-
-    summary = "There are some hidden risks in this decision.";
-
-    if (top?.id === "external_dependency") {
-      why = "Your decision is partially dependent on someone else's response, which may limit your control.";
-      action = "Define what you will do if no reply comes.";
-    } else {
-      why = "Your thinking may be influenced by incomplete reasoning or short-term pressure.";
-      action = "Compare at least one alternative before deciding.";
-    }
-
+  if (pressure >= 75) {
+    summary = "This decision is exposed to avoidable risk.";
+    feasibility = "Low to medium. The decision may still be possible, but the current setup is fragile.";
+    advisorView =
+      "The main concern is not whether the goal is attractive. The concern is that the current conditions reduce control: limited preparation, limited information, or excessive urgency.";
+    nextStep = topSignal?.action || "Pause and reduce the most obvious risk before acting.";
+  } else if (pressure >= 45) {
+    summary = "This decision needs more structure before action.";
+    feasibility = "Medium. The decision may be reasonable, but it needs clearer boundaries.";
+    advisorView =
+      "There are warning signs, but they do not necessarily mean the decision is wrong. The better move is to make the uncertainty visible and test a smaller version first.";
+    nextStep = topSignal?.action || "Compare your current plan with one safer alternative.";
+  } else if (pressure >= 25) {
+    summary = "This decision looks manageable, but still worth reviewing.";
+    feasibility = "Medium to high. No severe risk pattern is visible, but a short review would improve confidence.";
+    advisorView =
+      "The decision appears reasonably controlled. Still, there may be practical details worth checking before you commit.";
+    nextStep = "Identify one small action that confirms whether the decision still makes sense.";
   } else {
-    summary = "This decision looks relatively stable.";
-    why = "No strong behavioural risks detected in your description.";
-    action = "Proceed, but stay adaptive.";
+    summary = "Low pressure detected.";
+    feasibility = "High, based on the limited information provided.";
+    advisorView =
+      "No strong behavioural pressure is visible from the current sentence. A more detailed sentence would allow a sharper analysis.";
+    nextStep = "Add context: what you want, what worries you, and what happens if you wait.";
   }
 
   return {
-    pressure,
-    reflectiveIndex,
     summary,
-    why,
-    action,
-    recommendation: summary, // 🔥 fix undefined UI issue
-    topSignal: top?.id || null
+    advisorView,
+    feasibility,
+    nextStep,
+    pressure,
+    category,
+    scenario,
+    topSignal: topSignal?.label || "None",
+    matched
   };
 }
 
-/* =======================
-   🎨 APP
-======================= */
+const MOTIONS = {
+  risky: ["shake", "pulse", "bounce"],
+  uncertain: ["float", "sway", "bounce"],
+  clear: ["bounce", "float", "pulse"],
+  calm: ["breath", "fade", "float"]
+};
 
-export default function App() {
-  const [input, setInput] = useState("");
+function pickMotion(category) {
+  const list = MOTIONS[category] || MOTIONS.calm;
+  return list[Math.floor(Math.random() * list.length)];
+}
 
-  /* 🔥 动态 placeholder */
-  const placeholders = [
-    "Describe your decision here...",
-    "What are you thinking about...",
-    "Tell me what's on your mind...",
-    "What feels uncertain right now...",
-    "Write anything — I’ll help you reflect"
-  ];
-
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-
-  useEffect(() => {
-    const i = setInterval(() => {
-      setPlaceholderIndex(p => (p + 1) % placeholders.length);
-    }, 3000);
-    return () => clearInterval(i);
-  }, []);
-
-  const placeholder = placeholders[placeholderIndex];
-
-  const current = input ? analyseDecision(input) : null;
-
-  const hasInput = input.trim().length > 0;
-
-
+function Human() {
   return (
-    <div style={styles.page}>
-      <div className="nl-container" style={{ width: "100%", maxWidth: "none" }}>
-      <style>{`
-      html, body, #root {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        background: #ffffff !important;
-        overflow-x: hidden;
-      }
-
-      html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      body {
-        background: #ffffff !important;
-      }
-
-      /* Ensure no horizontal overflow causing edges */
-      body, #root {
-        overflow-x: hidden;
-      }
-
-      html {
-        background: #ffffff !important;
-      }
-
-      body {
-        background: #ffffff !important;
-      }
-
-      #root {
-        width: 100vw;
-        min-height: 100vh;
-        background: #ffffff !important;
-      }
-
-      @keyframes inputBreath {
-        0% {
-          box-shadow: 0 1px 6px rgba(32,33,36,.18);
-          border-color: #dadce0;
-          background: #fff;
-        }
-        50% {
-          box-shadow: 0 12px 48px rgba(26,115,232,.28);
-          border-color: #1a73e8;
-          background: #f4f8ff;
-        }
-        100% {
-          box-shadow: 0 1px 6px rgba(32,33,36,.18);
-          border-color: #dadce0;
-          background: #fff;
-        }
-      }
-
-      `}</style>
-
-      <h1 style={styles.title} className="nl-title">NudgeLens</h1>
-
-      <textarea
-        className="nl-textarea"
-        style={{
-          ...styles.searchBox,
-          animation: hasInput ? "inputBreath 2.2s ease-in-out infinite" : "none",
-          transition: "all 0.3s ease",
-          caretColor: "#1a73e8"
-        }}
-        value={input}
-        placeholder={placeholder}
-        onFocus={(e)=>{
-          e.target.style.boxShadow="0 12px 40px rgba(26,115,232,.25)";
-          e.target.style.borderColor="#1a73e8";
-        }}
-        onBlur={(e)=>{
-          e.target.style.boxShadow="0 1px 6px rgba(32,33,36,.18)";
-          e.target.style.borderColor="#dadce0";
-        }}
-        onChange={(e)=>{
-          setInput(e.target.value);
-        }}
-      />
-
-      <button style={styles.button} className="nl-button">
-        Analyse
-      </button>
-
-      {input && (
-        <div style={styles.feedback} className="nl-feedback">
-          <h2>{current.recommendation}</h2>
-          <p style={{fontWeight: 500}}>{current.summary}</p>
-          <p style={{opacity: 0.7}}>{current.why}</p>
-          <p style={{marginTop: 10}}><b>Next step:</b> {current.action}</p>
-
-          <div style={styles.metrics} className="nl-metrics">
-            <div>Pressure: {current.pressure}</div>
-            <div>Reflective: {current.reflectiveIndex}</div>
-          </div>
-        </div>
-      )}
-
-      <Analytics />
-      </div>
+    <div style={styles.human}>
+      <div style={styles.head}></div>
+      <div style={styles.body}></div>
     </div>
   );
 }
 
-/* =======================
-   🎨 STYLE
-======================= */
+function Kangaroo({ motion }) {
+  return (
+    <div className={motion} style={styles.kangaroo}>
+      🦘
+    </div>
+  );
+}
+
+export default function App() {
+  const [input, setInput] = useState("");
+  const [result, setResult] = useState(null);
+  const [motion, setMotion] = useState("float");
+
+  const liveHint = useMemo(() => {
+    if (!input.trim()) return "Try writing one complete sentence.";
+    if (input.trim().length < 25) return "More context will make the analysis sharper.";
+    if (input.includes("but") || input.includes("但是")) return "Good: you included a tension point.";
+    return "Good. Add what makes the decision difficult if you want a sharper result.";
+  }, [input]);
+
+  function run() {
+    const analysis = analyseDecision(input);
+    setResult(analysis);
+    setMotion(pickMotion(analysis.category));
+  }
+
+  function clearAll() {
+    setInput("");
+    setResult(null);
+    setMotion("float");
+  }
+
+  return (
+    <div style={styles.page}>
+      <main style={styles.container}>
+        <div style={styles.brand}>NudgeLens · Local Advisor</div>
+
+        <h1 style={styles.title}>Decision Reflection Assistant</h1>
+
+        <p style={styles.subtitle}>
+          Write one full sentence. NudgeLens identifies behavioural pressure, feasibility, and a practical next step.
+        </p>
+
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Example: I want to quit my job, but I do not have a clear plan yet."
+          style={styles.input}
+        />
+
+        <p style={styles.hint}>{liveHint}</p>
+
+        <div style={styles.buttons}>
+          <button onClick={run} style={styles.primaryButton}>Analyse decision</button>
+          <button onClick={clearAll} style={styles.secondaryButton}>Clear</button>
+        </div>
+
+        <p style={styles.privacy}>
+          No login. No API. No data stored. This version runs locally in the browser.
+        </p>
+
+        {result && (
+          <section style={styles.resultCard}>
+            <div style={styles.cardTop}>
+              <span style={styles.smallLabel}>Advisor view</span>
+              <span style={styles.badge}>{result.scenario}</span>
+            </div>
+
+            <h2 style={styles.resultTitle}>{result.summary}</h2>
+
+            <p style={styles.paragraph}>{result.advisorView}</p>
+
+            <div style={styles.metrics}>
+              <div style={styles.metricBox}>
+                Pressure index
+                <br />
+                <strong>{result.pressure}</strong>
+              </div>
+              <div style={styles.metricBox}>
+                Decision state
+                <br />
+                <strong>{result.category}</strong>
+              </div>
+              <div style={styles.metricBox}>
+                Top signal
+                <br />
+                <strong>{result.topSignal}</strong>
+              </div>
+            </div>
+
+            <div style={styles.nextBox}>
+              <strong>Feasibility</strong>
+              <p>{result.feasibility}</p>
+            </div>
+
+            <div style={styles.nextBox}>
+              <strong>Next practical step</strong>
+              <p>{result.nextStep}</p>
+            </div>
+
+            {result.matched.length > 0 && (
+              <div style={styles.signalList}>
+                <strong>Detected signals</strong>
+                {result.matched.map((signal) => (
+                  <div key={signal.id} style={styles.signalItem}>
+                    <span>{signal.label}</span>
+                    <small>{signal.explanation}</small>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={styles.scene}>
+              <Human />
+              <Kangaroo motion={motion} />
+            </div>
+          </section>
+        )}
+      </main>
+
+      <style>{`
+        html, body, #root {
+          margin: 0;
+          min-height: 100%;
+          background: #ffffff;
+        }
+
+        .float { animation: float 2s ease-in-out infinite; }
+        .bounce { animation: bounce 1.7s ease-in-out infinite; }
+        .shake { animation: shake .45s ease-in-out infinite; }
+        .pulse { animation: pulse 1.4s ease-in-out infinite; }
+        .sway { animation: sway 2s ease-in-out infinite; }
+        .breath { animation: breath 2.4s ease-in-out infinite; }
+        .fade { animation: fade 2s ease-in-out infinite; }
+
+        @keyframes float { 50% { transform: translateY(-8px); } }
+        @keyframes bounce { 50% { transform: translateY(-14px); } }
+        @keyframes shake { 50% { transform: translateX(-5px); } }
+        @keyframes pulse { 50% { transform: scale(1.08); } }
+        @keyframes sway { 50% { transform: rotate(5deg); } }
+        @keyframes breath { 50% { transform: scale(1.03); } }
+        @keyframes fade { 50% { opacity: .55; } }
+      `}</style>
+    </div>
+  );
+}
 
 const styles = {
   page: {
-    width: "100%",
     minHeight: "100vh",
     background: "#ffffff",
-    paddingTop: 60,
-    boxSizing: "border-box",
-    fontFamily: "Arial",
-    margin: 0
+    fontFamily: "Arial, Helvetica, sans-serif",
+    color: "#111827"
   },
-  title: {
-    fontSize: 42,
-    marginBottom: 24,
-    color: "#1a73e8",
+  container: {
+    width: "min(920px, calc(100vw - 40px))",
+    margin: "0 auto",
+    padding: "52px 0",
     textAlign: "center"
   },
-  searchBox: {
-    width: "100%",
-    minHeight: 140,
-    border: "1px solid #dadce0",
-    borderRadius: 32,
+  brand: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#5b6472",
+    marginBottom: 14
+  },
+  title: {
+    margin: 0,
+    fontSize: "clamp(34px, 5vw, 56px)",
+    color: "#2f6fdf",
+    letterSpacing: "-1.6px"
+  },
+  subtitle: {
+    margin: "14px auto 28px",
+    maxWidth: 720,
+    color: "#5b6472",
+    lineHeight: 1.55
+  },
+  input: {
+    width: "min(760px, 100%)",
+    minHeight: 128,
+    borderRadius: 26,
+    border: "1px solid #d9dde5",
+    boxShadow: "0 18px 40px rgba(15, 23, 42, .10)",
     padding: 24,
-    fontSize: 17,
-    borderColor: "#dadce0",
-    transition: "all 0.3s ease",
-    display: "block"
+    fontSize: 16,
+    outline: "none",
+    resize: "vertical"
   },
-  button: {
-    marginTop: 24,
-    padding: "12px 28px",
-    background: "#1a73e8",
-    color: "#fff",
-    border: "none",
+  hint: {
+    color: "#8a93a3",
+    fontSize: 13,
+    marginTop: 12
+  },
+  buttons: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 14,
+    marginTop: 24
+  },
+  primaryButton: {
+    border: 0,
     borderRadius: 999,
-    display: "block",
-    marginLeft: "auto",
-    marginRight: "auto"
+    background: "#2f6fdf",
+    color: "#fff",
+    padding: "14px 24px",
+    fontWeight: 700,
+    cursor: "pointer"
   },
-  feedback: {
-    marginTop: 40,
-    marginLeft: "auto",
-    marginRight: "auto",
+  secondaryButton: {
+    border: "1px solid #d9dde5",
+    borderRadius: 999,
+    background: "#fff",
+    color: "#2f6fdf",
+    padding: "14px 24px",
+    fontWeight: 700,
+    cursor: "pointer"
+  },
+  privacy: {
+    marginTop: 16,
+    color: "#8a93a3",
+    fontSize: 13
+  },
+  resultCard: {
+    margin: "38px auto 0",
+    maxWidth: 820,
+    border: "1px solid #9fd0ac",
+    borderRadius: 28,
+    background: "linear-gradient(180deg, #f4fff7, #ffffff)",
+    padding: 28,
+    textAlign: "left",
+    boxShadow: "0 20px 50px rgba(15, 23, 42, .08)"
+  },
+  cardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12
+  },
+  smallLabel: {
+    color: "#5b6472",
+    fontSize: 13,
+    fontWeight: 700
+  },
+  badge: {
+    background: "#ffffff",
+    border: "1px solid #d9dde5",
+    borderRadius: 999,
+    padding: "8px 12px",
+    fontSize: 13,
+    fontWeight: 700
+  },
+  resultTitle: {
+    textAlign: "center",
+    color: "#2f7d3e",
+    fontSize: 32,
+    margin: "12px 0"
+  },
+  paragraph: {
+    color: "#3f4754",
+    lineHeight: 1.65,
     textAlign: "center"
   },
   metrics: {
-    marginTop: 16,
-    opacity: 0.6,
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: 14,
+    marginTop: 22
+  },
+  metricBox: {
+    border: "1px solid #b8d8bf",
+    borderRadius: 18,
+    background: "#ffffff",
+    padding: 16,
+    textAlign: "center",
+    color: "#5b6472"
+  },
+  nextBox: {
+    marginTop: 18,
+    borderTop: "1px solid #e7ebef",
+    paddingTop: 18,
+    textAlign: "center"
+  },
+  signalList: {
+    marginTop: 18,
+    display: "grid",
+    gap: 10
+  },
+  signalItem: {
+    background: "#ffffff",
+    border: "1px solid #e7ebef",
+    borderRadius: 16,
+    padding: 14,
+    display: "grid",
+    gap: 6
+  },
+  scene: {
     display: "flex",
     justifyContent: "center",
-    gap: 24
+    alignItems: "end",
+    gap: 36,
+    marginTop: 28
+  },
+  human: {
+    width: 70,
+    height: 90,
+    display: "grid",
+    justifyItems: "center"
+  },
+  head: {
+    width: 38,
+    height: 38,
+    borderRadius: "50%",
+    background: "#0B1FFF"
+  },
+  body: {
+    width: 26,
+    height: 46,
+    borderRadius: 12,
+    background: "#0B1FFF",
+    marginTop: 6
+  },
+  kangaroo: {
+    fontSize: 58,
+    filter: "saturate(1.4)"
   }
 };
