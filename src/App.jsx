@@ -2,6 +2,31 @@ import { useState } from "react";
 
 export default function App() {
   const [text, setText] = useState("");
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function analyse() {
+    if (!text) return;
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/analyse", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ input: text })
+      });
+
+      const data = await res.json();
+      setResult(data.result || "No result");
+    } catch (e) {
+      setResult("Error: " + e.message);
+    }
+
+    setLoading(false);
+  }
 
   return (
     <div
@@ -36,6 +61,7 @@ export default function App() {
       <br />
 
       <button
+        onClick={analyse}
         style={{
           marginTop: 20,
           padding: "10px 20px",
@@ -46,8 +72,22 @@ export default function App() {
           cursor: "pointer"
         }}
       >
-        Analyse
+        {loading ? "Analysing..." : "Analyse"}
       </button>
+      {result && (
+        <div
+          style={{
+            marginTop: 30,
+            padding: 20,
+            borderRadius: 12,
+            background: "#f5f7fa",
+            textAlign: "left",
+            whiteSpace: "pre-wrap"
+          }}
+        >
+          {result}
+        </div>
+      )}
     </div>
   );
 }
